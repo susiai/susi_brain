@@ -6,10 +6,10 @@ from flask import Flask
 from waitress import serve
 from flask_cors import CORS
 from flask_restx import Api
-from text.text_service import api as text_ns
-from audio.audio_service import api as audio_ns, v1api as v1audio_ns
-from share.share_service import api as share_ns
-from system.system_service import api as system_ns
+from text_service import api as text_ns
+from audio_service import api as audio_ns, v1api as v1audio_ns
+from share_service import api as share_ns
+from system_service import api as system_ns
 
 openai_api_key = ""
 app = Flask(__name__)
@@ -19,7 +19,7 @@ CORS(app)
 home_path = os.path.expanduser('~')
 cache_path = os.path.realpath(os.path.join(home_path, ".cache"))
 script_path = os.path.dirname(os.path.abspath(sys.argv[0]))
-app_path = os.path.realpath(os.path.join(script_path, ".."))
+app_path = os.path.realpath(os.path.join(script_path, "..", "..", ".."))
 data_path = os.path.realpath(os.path.join(app_path, "data"))
 os.makedirs(data_path, exist_ok=True)
 work_path = os.getcwd()
