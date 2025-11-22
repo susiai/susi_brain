@@ -1,0 +1,2457 @@
+openapi: 3.1.0
+info:
+  title: SUSI Compute
+  description: 'Step 1 connects the unchanged Flask chat, audio and file/search services
+    to the new server. Original HTTP routes and native aliases invoke the same handlers,
+    with their original behavior and limitations. Readiness describes application
+    resources; local models load on their first request. Anonymous local profile;
+    default bind address 127.0.0.1, port 8042. Authenticated configuration is not
+    supported in this step. Native operational failures use application/problem+json
+    with a safe X-Request-ID; native 429 and 503 responses include Retry-After: 1.
+    Flask service responses are passed through unchanged. Chat requires an OpenAI
+    key; file mutations require a SUSI Bearer token. Missing or invalid supplied credentials
+    never fall back to anonymous access.'
+  version: 0.1.0
+servers:
+- url: /
+paths:
+  /api/v1/compute/health/live:
+    get:
+      summary: Live
+      description: The HTTP process is alive; application resources may still be unavailable.
+      operationId: compute__health_live
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Compute  Health Live
+              example:
+                status: ok
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      parameters:
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+  /api/v1/compute/health/ready:
+    get:
+      summary: Ready
+      description: Required application resources are ready for requests.
+      operationId: compute__health_ready
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Compute  Health Ready
+              example:
+                status: ok
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '503':
+          description: Service Unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+            Retry-After:
+              schema:
+                type: string
+                enum:
+                - '1'
+      parameters:
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+  /api/v1/compute/status:
+    get:
+      summary: Status
+      description: Report service, stage, ready, authentication, protocol_version,
+        implemented/pending features and dependencies. Each dependency has name, required
+        and ready fields. Lifecycle readiness describes application resources independently
+        of individual capabilities.
+      operationId: compute__status
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Compute  Status
+              example:
+                service: compute
+                stage: migration-step-1
+                ready: true
+                authentication: disabled
+                protocol_version: '1'
+                implemented:
+                - health
+                - status
+                - capabilities
+                - offline-docs
+                - chat
+                - audio-transcription
+                - file-storage
+                - search
+                - system-metrics
+                pending:
+                - resident-model-lifecycle
+                - provider-selection
+                - decision-interface
+                - resource-admission-control
+                - embedding
+                - speech
+                dependencies: []
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      parameters:
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+  /api/v1/compute/docs:
+    get:
+      summary: Documentation
+      description: Explore and execute API requests with Swagger UI. JavaScript, CSS
+        and icons are served locally from docs-assets; no CDN or external validator
+        is used. Requests target the current origin and deployment prefix.
+      operationId: compute__docs
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/html:
+              schema:
+                type: string
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      parameters:
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+  /api/v1/compute/system/ready.json:
+    get:
+      tags:
+      - System
+      summary: Original Ready
+      description: 'Return the original readiness payload: health is ok.'
+      operationId: compute__system_ready
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Compute  System Ready
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      parameters:
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+  /api/system/ready.json:
+    get:
+      tags:
+      - System
+      summary: Original Ready
+      description: 'Return the original readiness payload: health is ok.'
+      operationId: compute__original_ready
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Compute  Original Ready
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      deprecated: true
+      parameters:
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+  /api/v1/compute/system/status.json:
+    get:
+      tags:
+      - System
+      summary: System Metrics
+      description: Read host/IP, CPU count/load/usage/temperature, disk/RAM sizes
+        and usage, timestamps and Docker counts. Unavailable temperature and Docker
+        counts are zero. Docker calls have a two-second timeout each.
+      operationId: compute__metrics
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Compute  Metrics
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      parameters:
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+  /api/system/status.json:
+    get:
+      tags:
+      - System
+      summary: System Metrics
+      description: Read host/IP, CPU count/load/usage/temperature, disk/RAM sizes
+        and usage, timestamps and Docker counts. Unavailable temperature and Docker
+        counts are zero. Docker calls have a two-second timeout each.
+      operationId: compute__original_metrics
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Compute  Original Metrics
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      deprecated: true
+      parameters:
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+  /api/v1/compute/inference/chat:
+    post:
+      tags:
+      - Existing services
+      summary: Run the original chat service
+      description: Run the original chat service. Forwards messages to OpenAI with
+        the fixed model gpt-3.5-turbo, temperature 1.0 and max_tokens 50; other request
+        options are ignored. Uses the configured OpenAI key. Missing data, messages
+        or key return an error dictionary with HTTP 200. The provider JSON is returned
+        unchanged, including provider errors, with HTTP 200.
+      operationId: compute__chat_0
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                messages:
+                  items:
+                    type: object
+                  type: array
+              type: object
+              required:
+              - messages
+            example:
+              messages:
+              - role: user
+                content: Hello
+        required: true
+      responses:
+        '200':
+          description: Original service response
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Original service failure or adapter failure
+          content:
+            application/json:
+              schema:
+                type: object
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '400':
+          description: Original invalid input response
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '403':
+          description: The server boundary rejects traversal and symlinks
+          content:
+            application/json:
+              schema:
+                type: object
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '415':
+          description: A JSON body requires application/json
+          content:
+            application/json:
+              schema:
+                type: object
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      parameters:
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+  /api/text/chat/completions:
+    post:
+      tags:
+      - Existing services
+      summary: Run the original chat service
+      description: Run the original chat service. Forwards messages to OpenAI with
+        the fixed model gpt-3.5-turbo, temperature 1.0 and max_tokens 50; other request
+        options are ignored. Uses the configured OpenAI key. Missing data, messages
+        or key return an error dictionary with HTTP 200. The provider JSON is returned
+        unchanged, including provider errors, with HTTP 200.
+      operationId: compute__chat_1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                messages:
+                  items:
+                    type: object
+                  type: array
+              type: object
+              required:
+              - messages
+            example:
+              messages:
+              - role: user
+                content: Hello
+        required: true
+      responses:
+        '200':
+          description: Original service response
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Original service failure or adapter failure
+          content:
+            application/json:
+              schema:
+                type: object
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '400':
+          description: Original invalid input response
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '403':
+          description: The server boundary rejects traversal and symlinks
+          content:
+            application/json:
+              schema:
+                type: object
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '415':
+          description: A JSON body requires application/json
+          content:
+            application/json:
+              schema:
+                type: object
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      parameters:
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+  /api/v1/compute/inference/transcriptions:
+    post:
+      tags:
+      - Existing services
+      summary: Run the original audio service
+      description: Run the original audio service. The Authorization header overrides
+        the configured OpenAI key. With a key, whisper-1 forwards to OpenAI; other
+        names use the existing local branches. Without a key every requested model
+        becomes tiny. Whisper loads on each request. Vosk requires mono PCM16 WAV
+        and the existing en-us model directory. Missing files return an error dictionary
+        with HTTP 200; unsupported model names return an empty dictionary. The original
+        Vosk JSON handling is unchanged and can raise a server error.
+      operationId: compute__transcription_0
+      responses:
+        '200':
+          description: Original service response
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Original service failure or adapter failure
+          content:
+            application/json:
+              schema:
+                type: object
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '400':
+          description: Original invalid input response
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '403':
+          description: The server boundary rejects traversal and symlinks
+          content:
+            application/json:
+              schema:
+                type: object
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '415':
+          description: A JSON body requires application/json
+          content:
+            application/json:
+              schema:
+                type: object
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+              - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                model:
+                  type: string
+                  default: tiny
+                  description: tiny, base, small, medium, large, whisper-1, en-us
+                    or de; other names return an empty dictionary when a key is set.
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        description: Bearer SUSI_API_KEY for file mutations; an OpenAI Bearer key
+          for cloud audio.
+        schema:
+          type: string
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+  /api/audio/transcriptions:
+    post:
+      tags:
+      - Existing services
+      summary: Run the original audio service
+      description: Run the original audio service. The Authorization header overrides
+        the configured OpenAI key. With a key, whisper-1 forwards to OpenAI; other
+        names use the existing local branches. Without a key every requested model
+        becomes tiny. Whisper loads on each request. Vosk requires mono PCM16 WAV
+        and the existing en-us model directory. Missing files return an error dictionary
+        with HTTP 200; unsupported model names return an empty dictionary. The original
+        Vosk JSON handling is unchanged and can raise a server error.
+      operationId: compute__transcription_1
+      responses:
+        '200':
+          description: Original service response
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Original service failure or adapter failure
+          content:
+            application/json:
+              schema:
+                type: object
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '400':
+          description: Original invalid input response
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '403':
+          description: The server boundary rejects traversal and symlinks
+          content:
+            application/json:
+              schema:
+                type: object
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '415':
+          description: A JSON body requires application/json
+          content:
+            application/json:
+              schema:
+                type: object
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+              - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                model:
+                  type: string
+                  default: tiny
+                  description: tiny, base, small, medium, large, whisper-1, en-us
+                    or de; other names return an empty dictionary when a key is set.
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        description: Bearer SUSI_API_KEY for file mutations; an OpenAI Bearer key
+          for cloud audio.
+        schema:
+          type: string
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+  /v1/audio/transcriptions:
+    post:
+      tags:
+      - Existing services
+      summary: Run the original audio service
+      description: Run the original audio service. The Authorization header overrides
+        the configured OpenAI key. With a key, whisper-1 forwards to OpenAI; other
+        names use the existing local branches. Without a key every requested model
+        becomes tiny. Whisper loads on each request. Vosk requires mono PCM16 WAV
+        and the existing en-us model directory. Missing files return an error dictionary
+        with HTTP 200; unsupported model names return an empty dictionary. The original
+        Vosk JSON handling is unchanged and can raise a server error.
+      operationId: compute__transcription_2
+      responses:
+        '200':
+          description: Original service response
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Original service failure or adapter failure
+          content:
+            application/json:
+              schema:
+                type: object
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '400':
+          description: Original invalid input response
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '403':
+          description: The server boundary rejects traversal and symlinks
+          content:
+            application/json:
+              schema:
+                type: object
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '415':
+          description: A JSON body requires application/json
+          content:
+            application/json:
+              schema:
+                type: object
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+              - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                model:
+                  type: string
+                  default: tiny
+                  description: tiny, base, small, medium, large, whisper-1, en-us
+                    or de; other names return an empty dictionary when a key is set.
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        description: Bearer SUSI_API_KEY for file mutations; an OpenAI Bearer key
+          for cloud audio.
+        schema:
+          type: string
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+  /api/audio/voice/transcriptions:
+    post:
+      tags:
+      - Existing services
+      summary: Run the original audio service
+      description: Run the original audio service. The Authorization header overrides
+        the configured OpenAI key. With a key, whisper-1 forwards to OpenAI; other
+        names use the existing local branches. Without a key every requested model
+        becomes tiny. Whisper loads on each request. Vosk requires mono PCM16 WAV
+        and the existing en-us model directory. Missing files return an error dictionary
+        with HTTP 200; unsupported model names return an empty dictionary. The original
+        Vosk JSON handling is unchanged and can raise a server error.
+      operationId: compute__transcription_3
+      responses:
+        '200':
+          description: Original service response
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Original service failure or adapter failure
+          content:
+            application/json:
+              schema:
+                type: object
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '400':
+          description: Original invalid input response
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '403':
+          description: The server boundary rejects traversal and symlinks
+          content:
+            application/json:
+              schema:
+                type: object
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '415':
+          description: A JSON body requires application/json
+          content:
+            application/json:
+              schema:
+                type: object
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+              - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                model:
+                  type: string
+                  default: tiny
+                  description: tiny, base, small, medium, large, whisper-1, en-us
+                    or de; other names return an empty dictionary when a key is set.
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        description: Bearer SUSI_API_KEY for file mutations; an OpenAI Bearer key
+          for cloud audio.
+        schema:
+          type: string
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+  /api/v1/compute/data/search:
+    post:
+      tags:
+      - Existing services
+      summary: Run the original JSONL search
+      description: Run the original JSONL search. Case-insensitive all-word matching
+        on text_t; returns original objects in file order, limited by max_rerank when
+        supplied.
+      operationId: compute__search_0
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                file:
+                  type: string
+                query:
+                  type: string
+                max_rerank:
+                  type: integer
+              type: object
+              required:
+              - file
+              - query
+            example:
+              file: documents.jsonl
+              query: hello
+              max_rerank: 5
+        required: true
+      responses:
+        '200':
+          description: Original service response
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: File not found
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Original service failure or adapter failure
+          content:
+            application/json:
+              schema:
+                type: object
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '400':
+          description: Invalid JSON input
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '403':
+          description: The server boundary rejects traversal and symlinks
+          content:
+            application/json:
+              schema:
+                type: object
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '415':
+          description: A JSON body requires application/json
+          content:
+            application/json:
+              schema:
+                type: object
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      parameters:
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+  /api/data/search:
+    post:
+      tags:
+      - Existing services
+      summary: Run the original JSONL search
+      description: Run the original JSONL search. Case-insensitive all-word matching
+        on text_t; returns original objects in file order, limited by max_rerank when
+        supplied.
+      operationId: compute__search_1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                file:
+                  type: string
+                query:
+                  type: string
+                max_rerank:
+                  type: integer
+              type: object
+              required:
+              - file
+              - query
+            example:
+              file: documents.jsonl
+              query: hello
+              max_rerank: 5
+        required: true
+      responses:
+        '200':
+          description: Original service response
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: File not found
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Original service failure or adapter failure
+          content:
+            application/json:
+              schema:
+                type: object
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '400':
+          description: Invalid JSON input
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '403':
+          description: The server boundary rejects traversal and symlinks
+          content:
+            application/json:
+              schema:
+                type: object
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '415':
+          description: A JSON body requires application/json
+          content:
+            application/json:
+              schema:
+                type: object
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      parameters:
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+  /api/v1/compute/data/{req_path}:
+    get:
+      tags:
+      - Existing services
+      summary: Read files or directory listings using the original file service
+      description: Read files or directory listings using the original file service.
+        index.json returns directory metadata.
+      operationId: compute__file_get_0
+      responses:
+        '200':
+          description: File bytes, HTML directory listing or JSON index
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+            text/html:
+              schema:
+                type: string
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Original service failure or adapter failure
+          content:
+            application/json:
+              schema:
+                type: object
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '400':
+          description: Original invalid input response
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '403':
+          description: The server boundary rejects traversal and symlinks
+          content:
+            application/json:
+              schema:
+                type: object
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '415':
+          description: A JSON body requires application/json
+          content:
+            application/json:
+              schema:
+                type: object
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '206':
+          description: Requested byte range
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '304':
+          description: File unchanged
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '416':
+          description: Invalid byte range
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      parameters:
+      - name: req_path
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+    post:
+      tags:
+      - Existing services
+      summary: Upload a file using the original file service
+      description: Upload a file using the original file service. Requires the SUSI
+        Bearer key. The original response has HTTP 200 and a JSON status field of
+        201.
+      operationId: compute__file_post_0
+      responses:
+        '200':
+          description: Original service response
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Original service failure or adapter failure
+          content:
+            application/json:
+              schema:
+                type: object
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '400':
+          description: Original invalid input response
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '403':
+          description: The server boundary rejects traversal and symlinks
+          content:
+            application/json:
+              schema:
+                type: object
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '415':
+          description: A JSON body requires application/json
+          content:
+            application/json:
+              schema:
+                type: object
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '401':
+          description: Invalid or missing SUSI Bearer token
+          content:
+            text/html:
+              schema:
+                type: string
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      parameters:
+      - name: req_path
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: Authorization
+        in: header
+        required: false
+        description: Bearer SUSI_API_KEY for file mutations; an OpenAI Bearer key
+          for cloud audio.
+        schema:
+          type: string
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+              - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+    delete:
+      tags:
+      - Existing services
+      summary: Call the original delete handler
+      description: Call the original delete handler. Requires the SUSI Bearer key.
+        The original handler references an undefined full_path and currently returns
+        HTTP 500.
+      operationId: compute__file_delete_0
+      responses:
+        '200':
+          description: Original service response
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Original service failure or adapter failure
+          content:
+            application/json:
+              schema:
+                type: object
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '400':
+          description: Original invalid input response
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '403':
+          description: The server boundary rejects traversal and symlinks
+          content:
+            application/json:
+              schema:
+                type: object
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '415':
+          description: A JSON body requires application/json
+          content:
+            application/json:
+              schema:
+                type: object
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '401':
+          description: Invalid or missing SUSI Bearer token
+          content:
+            text/html:
+              schema:
+                type: string
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      parameters:
+      - name: req_path
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: Authorization
+        in: header
+        required: false
+        description: Bearer SUSI_API_KEY for file mutations; an OpenAI Bearer key
+          for cloud audio.
+        schema:
+          type: string
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+  /api/data/{req_path}:
+    get:
+      tags:
+      - Existing services
+      summary: Read files or directory listings using the original file service
+      description: Read files or directory listings using the original file service.
+        index.json returns directory metadata.
+      operationId: compute__file_get_1
+      responses:
+        '200':
+          description: File bytes, HTML directory listing or JSON index
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+            text/html:
+              schema:
+                type: string
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Original service failure or adapter failure
+          content:
+            application/json:
+              schema:
+                type: object
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '400':
+          description: Original invalid input response
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '403':
+          description: The server boundary rejects traversal and symlinks
+          content:
+            application/json:
+              schema:
+                type: object
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '415':
+          description: A JSON body requires application/json
+          content:
+            application/json:
+              schema:
+                type: object
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '206':
+          description: Requested byte range
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '304':
+          description: File unchanged
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '416':
+          description: Invalid byte range
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      parameters:
+      - name: req_path
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+    post:
+      tags:
+      - Existing services
+      summary: Upload a file using the original file service
+      description: Upload a file using the original file service. Requires the SUSI
+        Bearer key. The original response has HTTP 200 and a JSON status field of
+        201.
+      operationId: compute__file_post_1
+      responses:
+        '200':
+          description: Original service response
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Original service failure or adapter failure
+          content:
+            application/json:
+              schema:
+                type: object
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '400':
+          description: Original invalid input response
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '403':
+          description: The server boundary rejects traversal and symlinks
+          content:
+            application/json:
+              schema:
+                type: object
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '415':
+          description: A JSON body requires application/json
+          content:
+            application/json:
+              schema:
+                type: object
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '401':
+          description: Invalid or missing SUSI Bearer token
+          content:
+            text/html:
+              schema:
+                type: string
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      parameters:
+      - name: req_path
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: Authorization
+        in: header
+        required: false
+        description: Bearer SUSI_API_KEY for file mutations; an OpenAI Bearer key
+          for cloud audio.
+        schema:
+          type: string
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+              - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+    delete:
+      tags:
+      - Existing services
+      summary: Call the original delete handler
+      description: Call the original delete handler. Requires the SUSI Bearer key.
+        The original handler references an undefined full_path and currently returns
+        HTTP 500.
+      operationId: compute__file_delete_1
+      responses:
+        '200':
+          description: Original service response
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Original service failure or adapter failure
+          content:
+            application/json:
+              schema:
+                type: object
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '400':
+          description: Original invalid input response
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '403':
+          description: The server boundary rejects traversal and symlinks
+          content:
+            application/json:
+              schema:
+                type: object
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '415':
+          description: A JSON body requires application/json
+          content:
+            application/json:
+              schema:
+                type: object
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '401':
+          description: Invalid or missing SUSI Bearer token
+          content:
+            text/html:
+              schema:
+                type: string
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      parameters:
+      - name: req_path
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: Authorization
+        in: header
+        required: false
+        description: Bearer SUSI_API_KEY for file mutations; an OpenAI Bearer key
+          for cloud audio.
+        schema:
+          type: string
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+  /api/v1/compute/capabilities:
+    get:
+      summary: Capabilities
+      description: List the original inference tasks, served through the Flask adapter.
+      operationId: compute__capabilities
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Compute  Capabilities
+              example:
+                tasks:
+                - chat
+                - transcription
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      parameters:
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+security: []
+components:
+  schemas:
+    Problem:
+      type: object
+      properties:
+        type:
+          type: string
+          default: about:blank
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        code:
+          type: string
+        instance:
+          type: string
+        correlation_id:
+          type: string
+      required:
+      - type
+      - title
+      - status
+      - detail
+      - code
+      - instance
+      additionalProperties: false

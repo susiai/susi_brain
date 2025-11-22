@@ -1,5 +1,4 @@
-#curl http://localhost:8080/voice/transcriptions \
-curl http://localhost:8080/v1/audio/transcriptions \
-  -H "Content-Type: multipart/form-data" \
-  -F file="@wav/test_english_oliver_she.wav" \
-  -F model="whisper-1"
+#!/bin/sh
+set -eu
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+exec sh "$script_dir/bin/test_voice.sh" "$@"

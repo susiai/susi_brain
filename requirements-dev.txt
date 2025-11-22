@@ -1,0 +1,6 @@
+# Used exclusively by the pyproject.toml dev extra.
+pytest>=8,<10
+httpx>=0.27,<1
+PyYAML>=6,<7
+openapi-spec-validator>=0.7,<1
+build>=1,<2

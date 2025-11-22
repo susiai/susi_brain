@@ -1,0 +1,7 @@
+include requirements*.txt
+recursive-include config *.json
+recursive-include docker *.Dockerfile
+recursive-include scripts *.py
+recursive-include susi_space *.yaml
+recursive-include src *.md
+recursive-include test *.py *.sh *.html *.wav

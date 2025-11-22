@@ -1,9 +1,16 @@
-flask
-flask_cors
-flask-restx
-flask-httpauth
-waitress
-psutil
-requests_toolbelt
+# Runtime dependencies shared by local installs, packaging, and Docker.
+# Pydantic validates configuration; HTTP responses use regular dictionaries.
+# Swagger UI 5.33.1 assets are bundled in shared/web/static/vendor/swagger-ui; no extra Python dependency.
+fastapi>=0.115,<1
+pydantic>=2.12,<3
+uvicorn>=0.30,<1
+# Keep the existing Flask services behind the ASGI adapter during step 1.
+a2wsgi>=1.10,<2
+flask>=3,<4
+flask-restx>=1.3,<2
+flask-httpauth>=4.8,<5
+requests>=2.32,<3
+requests-toolbelt>=1,<2
+psutil>=5.9,<8
 openai-whisper==20250625
-vosk
+vosk>=0.3.44,<1

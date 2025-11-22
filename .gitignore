@@ -6,3 +6,10 @@ test/bin/*~
 src/audio/__pycache__/
 src/system/__pycache__/
 src/text/__pycache__/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+/tests/
+*.egg-info/
+build/
+dist/

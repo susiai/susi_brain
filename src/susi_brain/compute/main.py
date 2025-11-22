@@ -1,84 +1,58 @@
-import sys
-sys.path.insert(0, './src')
+"""Native Compute factory and direct file entrypoint."""
 
-import os, argparse, logging
-from flask import Flask
-from waitress import serve
-from flask_cors import CORS
-from flask_restx import Api
-from text_service import api as text_ns
-from audio_service import api as audio_ns, v1api as v1audio_ns
-from share_service import api as share_ns
-from system_service import api as system_ns
+if __name__ == "__main__":
+    import sys
+    from pathlib import Path
 
-openai_api_key = ""
-app = Flask(__name__)
-CORS(app)
+    # Locate the source package and delegate startup to the existing CLI.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from susi_brain.cli import compute_main
 
-# Log the current path(s)
-home_path = os.path.expanduser('~')
-cache_path = os.path.realpath(os.path.join(home_path, ".cache"))
-script_path = os.path.dirname(os.path.abspath(sys.argv[0]))
-app_path = os.path.realpath(os.path.join(script_path, "..", "..", ".."))
-data_path = os.path.realpath(os.path.join(app_path, "data"))
-os.makedirs(data_path, exist_ok=True)
-work_path = os.getcwd()
+    raise SystemExit(compute_main())
 
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-logger.debug("Current home path:    %s", home_path)
-logger.debug("Current cache path:   %s", cache_path)
-logger.debug("Current app path:     %s", app_path)
-logger.debug("Current data path:    %s", data_path)
-logger.debug("Current script path:  %s", script_path)
-logger.debug("Current working path: %s", work_path)
+from .config import ComputeSettings
+from .service_adapter import install_service_routes
+from .system_service import install_system_routes
+from susi_brain.shared.http.application import create_scaffold_app
+from susi_brain.shared.http.runtime import ApplicationRuntime
 
-app.config['HOME_PATH']   = home_path
-app.config['CACHE_PATH']  = cache_path
-app.config['APP_PATH']    = app_path
-app.config['DATA_PATH']   = data_path
-app.config['SCRIPT_PATH'] = script_path
-app.config['WORK_PATH']   = work_path
+PREFIX = "/api/v1/compute"
+PENDING = [
+    "resident-model-lifecycle", "provider-selection", "decision-interface",
+    "resource-admission-control", "embedding", "speech",
+]
 
-api = Api(app, version='1.0', title='susi_api', doc='/api/docs/')
-api.add_namespace(share_ns)
-api.add_namespace(text_ns)
-api.add_namespace(audio_ns)
-api.add_namespace(v1audio_ns)
-api.add_namespace(system_ns)
+DESCRIPTION = (
+    "Step 1 connects the unchanged Flask chat, audio and file/search services to the new server. "
+    "Original HTTP routes and native aliases invoke the same handlers, with their original behavior and limitations. "
+    "Readiness describes application resources; local models load on their first request. "
+    "Anonymous local profile; default bind address 127.0.0.1, port 8042. "
+    "Authenticated configuration is not supported in this step. "
+    "Native operational failures use application/problem+json with a safe X-Request-ID; "
+    "native 429 and 503 responses include Retry-After: 1. Flask service responses are passed through unchanged. "
+    "Chat requires an OpenAI key; file mutations require a SUSI Bearer token. "
+    "Missing or invalid supplied credentials never fall back to anonymous access."
+)
 
-def check_route_conflicts(app):
-    # Getting all routes and their endpoints
-    routes = [(str(route), route.endpoint) for route in app.url_map.iter_rules()]
 
-    # Check for duplicates
-    routes_str = [route[0] for route in routes]
-    if len(routes_str) != len(set(routes_str)):
-        print("Duplicate routes found.")
-        route_counts = {}
-        for route in routes:
-            if route[0] in route_counts:
-                route_counts[route[0]].append(route[1])
-            else:
-                route_counts[route[0]] = [route[1]]
+def create_compute_app(settings=None, *, resources=None):
+    settings = settings if settings is not None else ComputeSettings.from_env()
+    runtime = ApplicationRuntime(
+        resources if resources is not None else [], settings.readiness_timeout_seconds,
+    )
+    app = create_scaffold_app(
+        "compute", settings, runtime, pending=PENDING, stage="migration-step-1",
+        implemented=["health", "status", "capabilities", "offline-docs", "chat",
+                     "audio-transcription", "file-storage", "search", "system-metrics"],
+        description=DESCRIPTION,
+    )
+    install_system_routes(app)
+    install_service_routes(app)
 
-        duplicates = [(route, endpoints) for route, endpoints in route_counts.items() if len(endpoints) > 1]
-        for dup_route, endpoints in duplicates:
-            print(f"The following route is duplicated: {dup_route}")
-            print("It is defined in these endpoints: ", ", ".join(endpoints))
+    @app.get(PREFIX + "/capabilities", operation_id="compute__capabilities",
+             responses={200: {"content": {"application/json": {"example": {"tasks": ["chat", "transcription"]}}}}})
+    def capabilities() -> dict:
+        """List the original inference tasks, served through the Flask adapter."""
+        return {"tasks": ["chat", "transcription"]}
 
-# Run the conflict check
-check_route_conflicts(app)
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Load a model and save it as prepared model for finetuning")
-    parser.add_argument("--port", default="8080", type=str, help="server port, default 8080")
-    parser.add_argument("--host", default="0.0.0.0", type=str, help="bind address, default 0.0.0.0")
-    parser.add_argument("--susi_api_key", default=os.environ.get('SUSI_API_KEY', default=''), type=str, help="SUSI API key")
-    parser.add_argument("--openai_api_key", default=os.environ.get('OPENAI_API_KEY', default=''), type=str, help="OpenAI API key")
-    args = parser.parse_args()
-
-    app.config['SUSI_API_KEY'] = args.susi_api_key
-    app.config['OPENAI_API_KEY'] = args.openai_api_key
-
-    serve(app, host=args.host, port=args.port, threads=8)
+    return app

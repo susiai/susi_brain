@@ -1,4 +1,4 @@
-#!/bin/bash
-cd "`dirname $0`"
-
-curl http://localhost:8080/api/text/chat/completions -H "Content-Type: application/json" -d '{"model": "gpt-3.5-turbo","messages": [{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": "Hello!"}]}'
+#!/bin/sh
+set -eu
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+exec "${COMPUTE_PYTHON:-python3.12}" "$script_dir/offline_whisper.py" chat "$@"

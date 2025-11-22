@@ -1,22 +1,37 @@
-# run this i.e. with
-# docker build -f docker/compute.Dockerfile -t susi_api .
-# docker run -d -p 8080:8080 --name susi_api susi_api
-# docker run -d -p 8080:8080 -e OPENAI_API_KEY=<apikey> --name susi_api susi_api
+# docker build -f docker/compute.Dockerfile -t susi-compute .
 FROM python:3.12-slim
-ENV DEBIAN_FRONTEND noninteractive
-ARG default_branch=master
 
-COPY src/susi_brain/compute/requirements.txt /app/
-COPY src/ ./app/src/
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONPATH=/app/src \
+    HOME=/home/susi
 
 WORKDIR /app
-RUN \
-    apt-get update && apt-get install -y ca-certificates bash ffmpeg net-tools sysstat procps && \
-    export PYTHONHTTPSVERIFY=0 && \
-    python3.12 -m pip install --upgrade pip && \
-    python3.12 -m pip install --trusted-host=pypi.python.org --trusted-host=pypi.org --trusted-host=files.pythonhosted.org --no-cache-dir -r requirements.txt && \
-    python3.12 -W ignore -c "import whisper; whisper.load_model('tiny'); whisper.load_model('base')" && \
-    rm -rf /tmp/* /var/tmp/* /var/cache/apk/* /var/cache/distfiles/*
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates grep ffmpeg libgomp1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10001 susi \
+    && useradd --uid 10001 --gid 10001 --create-home susi \
+    && mkdir -p /app/data /home/susi/.cache \
+    && chown -R susi:susi /app/data /home/susi
 
-EXPOSE 8080
-CMD ["python3.12", "src/susi_brain/compute/main.py"]
+COPY src/susi_brain/compute/requirements.txt ./
+# Install CPU-only Torch before Whisper, avoiding unnecessary CUDA libraries.
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu \
+    && pip install --no-cache-dir --prefer-binary -r requirements.txt && pip check
+COPY src/susi_brain/ ./src/susi_brain/
+# Ship Swagger UI locally so interactive documentation also works offline.
+RUN python -c "from pathlib import Path; assets = Path('src/susi_brain/shared/web/static/vendor/swagger-ui'); assert all((assets / name).is_file() for name in ('swagger-ui-bundle.js', 'swagger-ui.css', 'favicon-32x32.png'))"
+# Configuration retains Pydantic; HTTP routes use dictionaries and no catalog.
+RUN python -c "from susi_brain.compute.config import ComputeSettings; assert ComputeSettings().readiness_timeout_seconds == 2"
+# The shared server must also work without importing Compute or ML backends.
+RUN python -c "import sys; from susi_brain.shared.config.settings import AppSettings; from susi_brain.shared.http.application import create_scaffold_app; from susi_brain.shared.http.runtime import ApplicationRuntime; app = create_scaffold_app('vault', AppSettings(), ApplicationRuntime([], 2)); assert '/api/v1/vault/health/ready' in app.openapi()['paths']; assert not any(name.startswith('susi_brain.compute') for name in sys.modules); assert not {'flask', 'psutil', 'torch', 'whisper', 'vosk'} & sys.modules.keys()"
+RUN python -c "import sys; from susi_brain.compute.main import create_compute_app; app = create_compute_app(); assert '/api/v1/compute/health/ready' in app.openapi()['paths']; assert not {'flask', 'torch', 'whisper', 'vosk'} & sys.modules.keys()"
+RUN python -c "import a2wsgi, flask, flask_restx, flask_httpauth, requests, requests_toolbelt, psutil, whisper, vosk" && ffmpeg -version >/dev/null
+
+USER 10001:10001
+EXPOSE 8042
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
+    CMD ["python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8042/api/v1/compute/health/ready', timeout=2).close()"]
+CMD ["python", "-m", "susi_brain", "compute", "--host", "0.0.0.0"]

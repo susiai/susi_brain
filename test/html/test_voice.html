@@ -73,7 +73,7 @@ document.getElementById('startBtn').addEventListener('click', function() {
             let model = document.getElementById('modelSelect').value;
             formData.append("model", model);
 
-            fetch("http://localhost:8080/api/audio/voice/transcriptions", {
+            fetch("http://127.0.0.1:8042/api/audio/voice/transcriptions", {
                 method: "POST",
                 body: formData
             })

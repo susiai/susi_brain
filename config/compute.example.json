@@ -1,0 +1,10 @@
+{
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8042
+  },
+  "compute": {
+    "readiness_timeout_seconds": 2,
+    "data_path": "data"
+  }
+}
