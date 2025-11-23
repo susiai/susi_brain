@@ -20,22 +20,22 @@ def check(client, kind, args):
         response = client.get(prefix + "/openapi.json")
         response.raise_for_status()
         assert response.json()["openapi"].startswith("3.")
-        assert prefix + "/inference/chat" in response.json()["paths"]
+        assert prefix + "/chat/completions" in response.json()["paths"]
     elif kind == "metrics":
-        response = client.get("/api/system/status.json")
+        response = client.get(prefix + "/system/status.json")
         response.raise_for_status()
         assert response.json()["cpu_count"] > 0
     elif kind == "chat":
         payload = {"messages": [{"role": "user", "content": "Hello!"}]}
         if args.chat_model:
             payload["model"] = args.chat_model
-        response = client.post("/api/text/chat/completions", json=payload)
+        response = client.post(prefix + "/chat/completions", json=payload)
         response.raise_for_status()
         assert response.json()["choices"]
         print(json.dumps(response.json(), ensure_ascii=False))
     elif kind == "audio":
         with args.file.open("rb") as audio:
-            response = client.post("/api/audio/transcriptions", files={"file": (args.file.name, audio, "audio/wav")}, data={"model": args.model})
+            response = client.post(prefix + "/audio/transcriptions", files={"file": (args.file.name, audio, "audio/wav")}, data={"model": args.model})
         response.raise_for_status()
         assert isinstance(response.json()["text"], str) and response.json()["text"].strip()
         print(json.dumps(response.json(), ensure_ascii=False))
@@ -43,17 +43,17 @@ def check(client, kind, args):
         if not args.token:
             raise ValueError("Set SUSI_API_KEY or --token to test file mutations.")
         filename = "checks/" + uuid4().hex + "/sample.jsonl"
-        route = "/api/data/" + filename
+        route = prefix + "/data/" + filename
         headers = {"Authorization": "Bearer " + args.token}
         content = b'{"sku":"check","text_t":"file storage smoke test"}\n'
         response = client.post(route, files={"file": ("sample.jsonl", content)}, headers=headers)
         response.raise_for_status()
         try:
             assert client.get(route).content == content
-            result = client.post("/api/data/search", json={"file": filename, "query": "smoke test"})
+            result = client.post(prefix + "/data/search", json={"file": filename, "query": "smoke test"})
             result.raise_for_status()
             assert result.json() == [{"sku": "check", "text_t": "file storage smoke test"}]
-            listing = client.get("/api/data/" + filename.rsplit("/", 1)[0] + "/index.json")
+            listing = client.get(prefix + "/data/" + filename.rsplit("/", 1)[0] + "/index.json")
             listing.raise_for_status()
             assert listing.json()["dir"][0]["name"] == "sample.jsonl"
         finally:

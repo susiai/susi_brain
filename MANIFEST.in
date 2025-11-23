@@ -1,7 +1,9 @@
 include requirements*.txt
+include src/susi_brain/compute/requirements.txt
 recursive-include config *.json
 recursive-include docker *.Dockerfile
 recursive-include scripts *.py
-recursive-include susi_space *.yaml
-recursive-include src *.md
+recursive-include src *.md *.yaml
+recursive-include src/susi_brain/shared/web/static *
 recursive-include test *.py *.sh *.html *.wav
+prune tests

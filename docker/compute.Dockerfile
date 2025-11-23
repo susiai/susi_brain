@@ -27,8 +27,8 @@ RUN python -c "from pathlib import Path; assets = Path('src/susi_brain/shared/we
 RUN python -c "from susi_brain.compute.config import ComputeSettings; assert ComputeSettings().readiness_timeout_seconds == 2"
 # The shared server must also work without importing Compute or ML backends.
 RUN python -c "import sys; from susi_brain.shared.config.settings import AppSettings; from susi_brain.shared.http.application import create_scaffold_app; from susi_brain.shared.http.runtime import ApplicationRuntime; app = create_scaffold_app('vault', AppSettings(), ApplicationRuntime([], 2)); assert '/api/v1/vault/health/ready' in app.openapi()['paths']; assert not any(name.startswith('susi_brain.compute') for name in sys.modules); assert not {'flask', 'psutil', 'torch', 'whisper', 'vosk'} & sys.modules.keys()"
-RUN python -c "import sys; from susi_brain.compute.main import create_compute_app; app = create_compute_app(); assert '/api/v1/compute/health/ready' in app.openapi()['paths']; assert not {'flask', 'torch', 'whisper', 'vosk'} & sys.modules.keys()"
-RUN python -c "import a2wsgi, flask, flask_restx, flask_httpauth, requests, requests_toolbelt, psutil, whisper, vosk" && ffmpeg -version >/dev/null
+RUN python -c "import sys; from susi_brain.compute.main import create_compute_app; app = create_compute_app(); assert '/api/v1/compute/health/ready' in app.openapi()['paths']; assert not {'flask', 'flask_restx', 'flask_httpauth', 'a2wsgi', 'torch', 'whisper', 'vosk'} & sys.modules.keys()"
+RUN python -c "import multipart, werkzeug, requests, requests_toolbelt, psutil, whisper, vosk" && ffmpeg -version >/dev/null
 
 USER 10001:10001
 EXPOSE 8042

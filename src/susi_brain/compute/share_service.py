@@ -1,27 +1,41 @@
-from flask import request, send_from_directory, Response, jsonify, current_app, make_response
-from flask_restx import Namespace, Resource, fields
-from flask_httpauth import HTTPTokenAuth
+import shutil, os, time, logging, random, json
+from pathlib import Path, PurePosixPath
+from fastapi.security import APIKeyHeader
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi import Body, Depends, File, HTTPException, Request, UploadFile
+from starlette.staticfiles import NotModifiedResponse, StaticFiles
 from werkzeug.utils import secure_filename
-
-import os, time, logging, random, json
 
 # set up logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
-
-# Flask-restx namespace and authentication setup
-api = Namespace('api/data', description='File hosting and search operations')
-auth = HTTPTokenAuth(scheme='Bearer')
 
 # helper functions
 def secure_path(path):
     parts = path.split('/')
     return '/'.join(secure_filename(part) for part in parts)
 
-@auth.verify_token
-def verify_token(token):
-    susi_api_key = current_app.config.get('SUSI_API_KEY')
-    return token == susi_api_key
+def confine_document_paths(path, data_path, *, searching=False):
+    """Keep document requests within the configured root without following symlinks."""
+    if PurePosixPath(path).is_absolute() or {"..", ".susi-history"} & set(path.split("/")) or "\\" in path:
+        raise HTTPException(403)
+    current = Path(data_path)
+    relative = path if searching else secure_path(path)
+    for part in relative.split("/"):
+        current = current / part
+        if current.is_symlink():
+            raise HTTPException(403)
+
+
+def verify_token(request: Request,
+                 authorization: str | None = Depends(APIKeyHeader(name="Authorization", scheme_name="BearerToken",
+                     description="Enter Bearer followed by the API key.", auto_error=False))):
+    data_path = str(request.app.state.settings.data_path.resolve())
+    confine_document_paths(request.path_params['req_path'], data_path)
+    scheme, _, token = (authorization or '').partition(' ')
+    susi_api_key = request.app.state.settings.susi_api_key.get_secret_value()
+    if not susi_api_key or scheme.lower() != 'bearer' or token != susi_api_key:
+        raise HTTPException(401, headers={'WWW-Authenticate': 'Bearer realm="Authentication Required"'})
 
 # check if path is safe
 def is_safe_path(basedir, path, follow_symlinks=True):
@@ -35,7 +49,7 @@ def is_safe_path(basedir, path, follow_symlinks=True):
         return False  # or handle the exception as needed
 
 def error_response(message, status_code):
-    response = jsonify({'error': message})
+    response = JSONResponse({'error': message})
     response.status_code = status_code
     return response
 
@@ -49,30 +63,29 @@ The FileResource class handles file storage and retrieval. It provides endpoints
    is the desired path where the file should be stored. Ensure the path does not traverse outside the allowed directory.
    
    Example using curl:
-   curl -X POST -H "Authorization: Bearer YOUR_ACCESS_TOKEN" -H "Content-Type: multipart/form-data" -F "file=@path/to/your/file.txt" http://<server_address>/api/data/path/to/store/file.txt
+   curl -X POST -H "Authorization: Bearer YOUR_ACCESS_TOKEN" -H "Content-Type: multipart/form-data" -F "file=@path/to/your/file.txt" http://<server_address>/api/v1/compute/data/path/to/store/file.txt
 
 2. Download:
    To download a file, send a GET request to '/<path>' where '<path>' is the path to the file you wish to retrieve.
    The server will respond with the file content if the file exists and the request is authorized.
 
    Example using curl:
-   curl -X GET -H "Authorization: Bearer YOUR_ACCESS_TOKEN" http://<server_address>/api/data/path/to/store/file.txt -o file.txt
+   curl -X GET -H "Authorization: Bearer YOUR_ACCESS_TOKEN" http://<server_address>/api/v1/compute/data/path/to/store/file.txt -o file.txt
 
 3. Delete:
    To delete a file, send a DELETE request to '/<path>' where '<path>' is the path to the file you want to remove.
    The server will delete the file if it exists, the request is authorized, and the file is not in use.
 
    Example using curl:
-   curl -X DELETE -H "Authorization: Bearer YOUR_ACCESS_TOKEN" http://<server_address>/api/data/path/to/store/file.txt
+   curl -X DELETE -H "Authorization: Bearer YOUR_ACCESS_TOKEN" http://<server_address>/api/v1/compute/data/path/to/store/file.txt
 
 Please replace 'YOUR_ACCESS_TOKEN' with your actual access token and '<server_address>' with the actual address of the server.
 """
-@api.route('/<path:req_path>', methods=['GET', 'POST', 'DELETE'])
-class FileResource(Resource):
+class FileResource:
 
-    @api.doc('get_file')
-    def get(self, req_path):
-        data_path = current_app.config['DATA_PATH']
+    def get(self, request: Request, req_path: str):
+        data_path = str(request.app.state.settings.data_path.resolve())
+        confine_document_paths(req_path, data_path)
         req_path = secure_path(req_path)
         abs_path = os.path.join(data_path, req_path)
         logger.debug("data_path:    %s", data_path)
@@ -85,7 +98,11 @@ class FileResource(Resource):
 
         # Check if path is a file and serve
         if os.path.isfile(abs_path):
-            return send_from_directory(data_path, req_path)
+            response = FileResponse(abs_path, stat_result=os.stat(abs_path),
+                                    filename=os.path.basename(abs_path), content_disposition_type='inline')
+            if StaticFiles().is_not_modified(response.headers, request.headers):
+                return NotModifiedResponse(response.headers)
+            return response
 
         # Check if an index.json file is requested
         if req_path.endswith("index.json"):
@@ -103,31 +120,29 @@ class FileResource(Resource):
                     "last_accessed": time.ctime(stats.st_atime),
                     "last_modified": time.ctime(stats.st_mtime)
                 })
-            return jsonify({'path': req_path, 'dir': file_info})
+            return {'path': req_path, 'dir': file_info}
 
         # Check if path is a directory
         if not os.path.exists(abs_path) or not os.path.isdir(abs_path):
-            return f"Directory {abs_path} does not exist.", 404
+            return JSONResponse(f"Directory {abs_path} does not exist.", status_code=404)
     
         # Show directory contents
         files = os.listdir(os.path.dirname(abs_path)) if req_path.endswith("index.html") else os.listdir(abs_path)
         file_links = [f'<li><a href="{os.path.join(req_path, file)}">{file}</a></li>' for file in files]
-        return Response(f'<ul>{"".join(file_links)}</ul>', mimetype='text/html')
+        return HTMLResponse(f'<ul>{"".join(file_links)}</ul>')
 
     # authorized access to upload a file to the data path
     # this can be called i.e. with:
-    # curl -X POST -H 'Authorization: Bearer your-application-key' -F 'file=@/path/to/myfile.txt' http://localhost:8080/subdir/myfile.txt
-    @api.doc('upload_file')
-    @auth.login_required
-    def post(self, req_path):
-        if 'file' not in request.files:
-            return 'No file part in the request', 400
-        file = request.files['file']
+    # curl -X POST -H 'Authorization: Bearer your-application-key' -F 'file=@/path/to/myfile.txt' http://localhost:8042/api/v1/compute/data/subdir/myfile.txt
+    def post(self, request: Request, req_path: str, file: UploadFile | None = File(default=None),
+             authorized=Depends(verify_token)):
+        if file is None:
+            return JSONResponse('No file part in the request', status_code=400)
 
         if file.filename == '':
-            return 'No file selected for uploading', 400
+            return JSONResponse('No file selected for uploading', status_code=400)
 
-        data_path = current_app.config['DATA_PATH']
+        data_path = str(request.app.state.settings.data_path.resolve())
         req_path = secure_path(req_path)
         full_path = os.path.join(data_path, req_path)
 
@@ -137,20 +152,19 @@ class FileResource(Resource):
 
         try:
             os.makedirs(os.path.dirname(full_path), exist_ok=True)
-            file.save(full_path)
+            with open(full_path, 'wb') as destination:
+                shutil.copyfileobj(file.file, destination)
             logger.debug("Stored file to: %s", req_path)
-            return jsonify(message=f'File {os.path.basename(full_path)} uploaded successfully', status=201)
+            return dict(message=f'File {os.path.basename(full_path)} uploaded successfully', status=201)
         except Exception as e:
             logger.error(f"Failed to save file {req_path}: {e}")
             return error_response("Failed to save file due to server error", 500)
 
     # authorized access to delete a file from the data path
     # this can be called i.e. with:
-    # curl -X DELETE -H 'Authorization: Bearer your-application-key' http://localhost:8080/subdir/myfile.txt
-    @api.doc('delete_file')
-    @auth.login_required
-    def delete(self, req_path):
-        data_path = current_app.config['DATA_PATH']
+    # curl -X DELETE -H 'Authorization: Bearer your-application-key' http://localhost:8042/api/v1/compute/data/subdir/myfile.txt
+    def delete(self, request: Request, req_path: str, authorized=Depends(verify_token)):
+        data_path = str(request.app.state.settings.data_path.resolve())
         req_path = secure_path(req_path)
         abs_path = os.path.join(data_path, req_path)
         
@@ -160,7 +174,7 @@ class FileResource(Resource):
         
         # Check if path is a file
         if not os.path.isfile(abs_path):
-            return f'File {req_path} does not exist.', 404
+            return JSONResponse(f'File {req_path} does not exist.', status_code=404)
         
         try:
             os.remove(abs_path)
@@ -173,7 +187,7 @@ class FileResource(Resource):
                     os.rmdir(directory)
                 directory = os.path.dirname(directory)
         
-            return jsonify(message=f'File {os.path.basename(req_path)} deleted successfully', status=200)
+            return dict(message=f'File {os.path.basename(req_path)} deleted successfully', status=200)
         except FileNotFoundError:
             return error_response(f'File {req_path} does not exist.', 404)
         except Exception as e:
@@ -223,19 +237,9 @@ The score has a range from 0 to 300 where 200 and more means that the document i
 similar to the query.
 """
 
-# Define the model for the search input
-search_input = api.model('SearchInput', {
-    'file': fields.String(required=True, description='The filename to search in'),
-    'query': fields.String(required=True, description='The query to search for'),
-    'max_rerank': fields.Integer(required=False, description='Maximum number of documents to rerank')
-})
-
-@api.route('/search', methods=['POST'])
-class SearchResource(Resource):
-    @api.expect(search_input)
-    def post(self):
+class SearchResource:
+    def post(self, request: Request, search_data: dict | None = Body(default=None)):
         # Extract the search parameters from the request
-        search_data = request.get_json()
         if not search_data:
             return error_response("Invalid JSON input", 400)
 
@@ -244,7 +248,8 @@ class SearchResource(Resource):
         max_rerank = search_data.get('max_rerank')  # Get max_rerank from input, if provided
 
         # Load the JSON lines file
-        data_path = current_app.config['DATA_PATH']
+        data_path = str(request.app.state.settings.data_path.resolve())
+        confine_document_paths(file, data_path, searching=True)
         file_path = os.path.join(data_path, file)
         if not os.path.isfile(file_path):
             return error_response("File not found", 404)
@@ -261,7 +266,7 @@ class SearchResource(Resource):
         matched_documents = simple_search(search_tokens, documents, max_rerank)
 
         # Return the matched documents
-        return jsonify(matched_documents)
+        return matched_documents
 
 
 def simple_search(search_tokens, documents, max_rerank=None):

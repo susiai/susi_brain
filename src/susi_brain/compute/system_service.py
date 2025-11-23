@@ -1,16 +1,13 @@
-"""Compute host metrics and original system/documentation routes."""
+"""Compute host metrics and system routes."""
 
-import datetime
-import socket
-import subprocess
 import time
-
-from fastapi import Request
-from fastapi.responses import RedirectResponse
+import socket
+import datetime
+import subprocess
 
 
 def getMetricsJson():
-    """Report the original host, CPU, RAM, disk and Docker metric fields."""
+    """Report host, CPU, RAM, disk and Docker metrics."""
     import psutil
 
     now = int(time.time())
@@ -55,25 +52,15 @@ def getMetricsJson():
 
 
 def install_system_routes(app):
-    """Keep Compute metrics and original URL aliases outside shared HTTP code."""
+    """Keep Compute metrics outside shared HTTP code."""
     prefix = "/api/v1/compute"
 
-    @app.get("/api/system/ready.json", operation_id="compute__original_ready", deprecated=True, tags=["System"])
-    @app.get(prefix + "/system/ready.json", operation_id="compute__system_ready", tags=["System"])
+    @app.get(prefix + "/system/ready.json", operation_id="compute__system_ready", summary="Check service health", tags=["System"])
     def original_ready() -> dict:
-        """Return the original readiness payload: health is ok."""
+        """Return health: ok while the HTTP service is running."""
         return {"health": "ok"}
 
-    @app.get("/api/system/status.json", operation_id="compute__original_metrics", deprecated=True, tags=["System"])
     @app.get(prefix + "/system/status.json", operation_id="compute__metrics", tags=["System"])
     def system_metrics() -> dict:
         """Read host/IP, CPU count/load/usage/temperature, disk/RAM sizes and usage, timestamps and Docker counts. Unavailable temperature and Docker counts are zero. Docker calls have a two-second timeout each."""
         return getMetricsJson()
-
-    @app.get("/swagger.json", include_in_schema=False)
-    def original_schema(request: Request):
-        return {**app.openapi(), "servers": [{"url": request.scope.get("root_path") or "/"}]}
-
-    @app.get("/api/docs/", include_in_schema=False)
-    def original_documentation(request: Request):
-        return RedirectResponse(request.scope.get("root_path", "") + prefix + "/docs")

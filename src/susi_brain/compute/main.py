@@ -11,10 +11,10 @@ if __name__ == "__main__":
     raise SystemExit(compute_main())
 
 from .config import ComputeSettings
-from .service_adapter import install_service_routes
+from .api import install_service_routes
 from .system_service import install_system_routes
-from susi_brain.shared.http.application import create_scaffold_app
 from susi_brain.shared.http.runtime import ApplicationRuntime
+from susi_brain.shared.http.application import create_scaffold_app
 
 PREFIX = "/api/v1/compute"
 PENDING = [
@@ -22,17 +22,7 @@ PENDING = [
     "resource-admission-control", "embedding", "speech",
 ]
 
-DESCRIPTION = (
-    "Step 1 connects the unchanged Flask chat, audio and file/search services to the new server. "
-    "Original HTTP routes and native aliases invoke the same handlers, with their original behavior and limitations. "
-    "Readiness describes application resources; local models load on their first request. "
-    "Anonymous local profile; default bind address 127.0.0.1, port 8042. "
-    "Authenticated configuration is not supported in this step. "
-    "Native operational failures use application/problem+json with a safe X-Request-ID; "
-    "native 429 and 503 responses include Retry-After: 1. Flask service responses are passed through unchanged. "
-    "Chat requires an OpenAI key; file mutations require a SUSI Bearer token. "
-    "Missing or invalid supplied credentials never fall back to anonymous access."
-)
+DESCRIPTION = "API for computational services"
 
 
 def create_compute_app(settings=None, *, resources=None):
@@ -52,7 +42,7 @@ def create_compute_app(settings=None, *, resources=None):
     @app.get(PREFIX + "/capabilities", operation_id="compute__capabilities",
              responses={200: {"content": {"application/json": {"example": {"tasks": ["chat", "transcription"]}}}}})
     def capabilities() -> dict:
-        """List the original inference tasks, served through the Flask adapter."""
+        """List the supported inference tasks."""
         return {"tasks": ["chat", "transcription"]}
 
     return app

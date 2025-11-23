@@ -1,9 +1,9 @@
 # SUSI Compute
 
 This project incrementally develops an offline-capable inference service.
-Step 1 connects the existing Flask services to FastAPI and shared utilities.
-`audio_service.py`, `share_service.py` and `text_service.py` are restored exactly
-from the original Git revision. Their implementation is unchanged.
+The existing chat, audio and file/search services run directly as native FastAPI
+handlers. Their classes, method names and processing logic are retained; only
+the HTTP inputs, configuration access and response construction have changed.
 Swagger UI is available offline.
 
 ## File evolution
@@ -13,11 +13,11 @@ The existing files keep their original names. Every module below is used by the 
 | File in `src/susi_brain/compute/` | Responsibility |
 | --- | --- |
 | `main.py` | Compose Compute, describe its capabilities and register its routes |
-| `text_service.py` | Unchanged Flask chat service |
-| `audio_service.py` | Unchanged Flask audio service |
-| `system_service.py` | Host metrics and original system/documentation URL aliases |
-| `share_service.py` | Unchanged Flask file hosting and JSONL search |
-| `service_adapter.py` | Supply Flask configuration, adapt WSGI to ASGI and document URL aliases |
+| `text_service.py` | Native chat service with the existing forwarding logic |
+| `audio_service.py` | Native audio service with the existing transcription logic |
+| `system_service.py` | Host metrics and Compute system routes |
+| `share_service.py` | Native file hosting and existing JSONL search |
+| `api.py` | Register bound service methods under the Compute API prefix |
 | `requirements.txt` | Runtime dependencies shared by installs, packaging and Docker |
 
 Configuration, resource lifecycle, HTTP bootstrap and observability use `shared/`.
@@ -27,13 +27,14 @@ dictionary-based problem responses. Compute supplies its own description,
 stage and capabilities; the shared server does not import Compute or its services.
 Swagger UI is installed through `shared/web/swagger.py`; its
 assets live in `shared/web/static/vendor/swagger-ui/` for reuse by all applications.
-The adapter invokes the original Flask namespaces; it does not
-reimplement chat, transcription or file operations. Flask and its service
-dependencies remain runtime requirements during this transition.
-The server boundary rejects document traversal and symlinks before calling the
-file handlers, and keeps the existing private history directory inaccessible.
+The native router calls the existing synchronous service methods directly. There
+is no Flask application or WSGI bridge. Request bodies and uploads are parsed by
+FastAPI; blocking model, HTTP and file operations run in its worker threads.
+The file service retains the path guard and Bearer-token checks, including the
+restriction on access to the existing private history directory. Werkzeug remains
+a utility dependency solely for the existing filename sanitization.
 
-Original HTTP URLs and the new URLs call the same original handlers.
+All endpoints are served under `/api/v1/compute/`. Legacy URL aliases are removed.
 Existing files in `data/` are unchanged. There is one application, one launcher
 family and one Dockerfile.
 
@@ -81,18 +82,22 @@ deletion. File reads and JSONL search remain public. The local native profile
 remains anonymous; unsupported authenticated-profile settings are rejected.
 Provider responses, including errors, retain the original service behavior.
 
-| Function | Native URL | Original URL kept working |
-| --- | --- | --- |
-| Chat | `POST /api/v1/compute/inference/chat` | `/api/text/chat/completions` |
-| Audio | `POST /api/v1/compute/inference/transcriptions` | `/api/audio/transcriptions`, `/v1/audio/transcriptions`, `/api/audio/voice/transcriptions` |
-| Files | `GET/POST/DELETE /api/v1/compute/data/{path}` | `/api/data/{path}` |
-| Search | `POST /api/v1/compute/data/search` | `/api/data/search` |
-| Original readiness | `GET /api/v1/compute/system/ready.json` | `/api/system/ready.json` |
-| System metrics | `GET /api/v1/compute/system/status.json` | `/api/system/status.json` |
+| Function | URL |
+| --- | --- |
+| Chat | `POST /api/v1/compute/chat/completions` |
+| Audio | `POST /api/v1/compute/audio/transcriptions` |
+| Files | `GET/POST/DELETE /api/v1/compute/data/{path}` |
+| Search | `POST /api/v1/compute/data/search` |
+| Original readiness payload | `GET /api/v1/compute/system/ready.json` |
+| System metrics | `GET /api/v1/compute/system/status.json` |
 
-Chat accepts a JSON dictionary with `messages`. The original handler fixes the
-model to `gpt-3.5-turbo`, temperature to 1 and max_tokens to 50; other request
-options are ignored. Audio accepts multipart `file` and `model`.
+Chat accepts a JSON dictionary with `messages` containing `role` and `content`,
+using the OpenAI Chat Completions parameter names. The handler forwards `model`,
+`temperature` and `max_tokens` from the request, defaulting omitted values to
+`gpt-3.5-turbo`, 1.0 and 50 respectively; other request
+options are ignored. Audio accepts multipart `file` and `model` at
+`/api/v1/compute/audio/transcriptions`, using the OpenAI transcription parameter
+names. The local default model is `tiny`; local transcription returns `{"text":"..."}`.
 An optional OpenAI `Authorization: Bearer ...` header overrides the server key
 for cloud audio. Vosk requires mono PCM16 WAV and the existing `en-us` model
 directory relative to the working directory. Whisper uses its original cache
@@ -107,22 +112,26 @@ optional `max_rerank`; it preserves the case-insensitive all-word match on each
 JSONL object's `text_t`, returning original objects in file order. Uploads keep
 the original HTTP 200 response with a JSON `status` field of 201.
 
-Restoring the exact code also preserves existing defects: the DELETE handler
+Preserving the existing processing logic retains two known defects: the DELETE handler
 references an undefined `full_path`, and Vosk indexes JSON strings as dictionaries.
 Those paths currently fail with HTTP 500. Fixing them is a separate change;
 step 1 does not replace their implementation or conceal the failures.
 
 Swagger UI: <http://127.0.0.1:8042/api/v1/compute/docs>.
 Expand an endpoint, select **Try it out**, then **Execute** to send a request.
+For uploads or cloud audio, select **Authorize** and enter `Bearer YOUR_API_KEY`.
 The UI uses the current host and port, including a deployment prefix when present.
 Its JavaScript, CSS and icons are bundled locally; no CDN or external validator
-is required. Chat and audio forms accept real inputs. Native operational routes
-use problem responses; the three existing services keep their original responses,
+is required. Chat and audio forms accept real inputs. Service-specific responses keep their existing payloads and status codes,
 including HTTP 200 for missing chat configuration or a missing audio file.
+FastAPI request validation returns 422 problems; native authentication/path errors
+and uncaught failures use the shared problem responses. JSON formatting and opaque
+file ETag values follow the native response implementation; conditional and range
+downloads remain supported.
 The live schema is `/api/v1/compute/openapi.json`; the checked-in specification is
 `src/susi_brain/compute/swagger.yaml`. OpenAPI is the only interface description; there is no
-separate contract catalog or `/contracts` endpoint. Original `/api/docs/`
-redirects to Swagger UI, and `/swagger.json` serves the current OpenAPI schema.
+separate contract catalog or `/contracts` endpoint. Legacy API and documentation
+URLs return 404 without redirects.
 
 ## Configuration
 
@@ -161,7 +170,8 @@ Regenerate the specification after an API change with
 `python scripts/export_compute_openapi.py`. Runtime dependencies come from
 `src/susi_brain/compute/requirements.txt`; development tools are installed through the `pyproject.toml`
 dev extra. Shared modules have no imports from Compute or other applications.
-The adapter passes through the original Flask responses. Pydantic validates configuration only.
+HTTP responses use dictionaries and native response classes. There are no additional
+Pydantic request/response classes; application configuration uses Pydantic.
 
 The existing manual test tools have also been updated for this intermediate
 API. Against a configured running server, from the repository root:
@@ -177,7 +187,7 @@ sh test/bin/test_share.sh
 Use `--base-url http://127.0.0.1:8043` to test a different listener.
 Audio checks transcribe a real WAV using local `tiny` by default; pass `--model`
 and `--file` to choose another model or recording. Chat needs a configured OpenAI
-key and uses the original fixed chat model. The file check needs `SUSI_API_KEY` or `--token`
+key; `--chat-model` overrides the default `gpt-3.5-turbo`. The file check needs `SUSI_API_KEY` or `--token`
 and exercises upload, read, listing, search and deletion using a unique test path.
 The file check exposes the inherited DELETE defect described above; it currently
 fails at deletion and leaves its uniquely named file in `data/checks/`.

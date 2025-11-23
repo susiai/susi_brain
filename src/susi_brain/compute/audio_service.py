@@ -1,41 +1,36 @@
-import io, requests, tempfile
 import wave
-from flask import jsonify, request, current_app
-from flask_restx import Namespace, Resource
+import io, requests, tempfile
+from fastapi.security import APIKeyHeader
+from fastapi import Depends, File, Form, Request, UploadFile
 from requests_toolbelt.multipart.encoder import MultipartEncoder
-import whisper
-from vosk import Model, KaldiRecognizer, SetLogLevel
 
-api = Namespace('api/audio', description='audio operations')
-v1api = Namespace('v1/audio', description='audio operations - OpenAI Clone')
-
-@api.route('/transcriptions', methods=['POST'])
-@v1api.route('/transcriptions', methods=['POST'])
-class VoiceTranscription(Resource):
+class VoiceTranscription:
 
     # call i.e.:
-    # curl -X POST http://localhost:8080/api/audio/voice/transcriptions -H "Content-Type: multipart/form-data" -F file="@test.wav" -F model="whisper-1"
-    @api.doc('voice_transcriptions')
-    def post(self):
+    # curl -X POST http://localhost:8042/api/v1/compute/audio/transcriptions -H "Content-Type: multipart/form-data" -F file="@test.wav" -F model="whisper-1"
+    def post(self, request: Request, file: UploadFile | None = File(default=None),
+             model: str = Form(default="tiny"),
+             authorization: str | None = Depends(APIKeyHeader(name="Authorization", scheme_name="BearerToken",
+                 description="Enter Bearer followed by the API key.", auto_error=False))):
 
         # check if openai api key is present
-        openai_api_key = request.headers.get('Authorization')
+        openai_api_key = authorization
         if openai_api_key:
             openai_api_key = openai_api_key.replace('Bearer ', '')
         else:
-            openai_api_key = current_app.config['OPENAI_API_KEY']
+            openai_api_key = request.app.state.settings.openai_api_key.get_secret_value()
 
         # in case that openai_api_key is not present,
         # we fail over to a local whisper model.
-        model_name = request.form.get('model', 'tiny')
+        model_name = model
         if not openai_api_key:
             model_name = 'tiny'
 
         # check if file is present
-        if not request.files:
-            return jsonify({'error': 'No file provided'})
-        audio_file = request.files['file']
-        audio_data = audio_file.read()
+        if file is None:
+            return {'error': 'No file provided'}
+        audio_file = file
+        audio_data = audio_file.file.read()
         audio_name = audio_file.filename
 
         # check if model is present and valid
@@ -63,6 +58,7 @@ class VoiceTranscription(Resource):
             if model_name == 'tiny' or model_name == 'base' or model_name == 'small' or model_name == 'medium' or model_name == 'large': 
 
                 # Load the offline model (it is loaded directly from the internet)
+                import whisper
                 model = whisper.load_model(model_name)
 
                 # Save the received audio file temporarily to disk
@@ -80,8 +76,9 @@ class VoiceTranscription(Resource):
 
                 wf = wave.open(io.BytesIO(audio_data), "rb")
                 if wf.getnchannels() != 1 or wf.getsampwidth() != 2 or wf.getcomptype() != "NONE":
-                    return jsonify({'error': 'Audio file must be WAV format mono PCM.'})
+                    return {'error': 'Audio file must be WAV format mono PCM.'}
 
+                from vosk import Model, KaldiRecognizer
                 model = Model('en-us')
                 rec = KaldiRecognizer(model, wf.getframerate())
                 rec.SetWords(True)

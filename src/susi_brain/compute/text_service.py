@@ -1,27 +1,21 @@
 import requests
-from flask import jsonify, request, current_app
-from flask_restx import Namespace, Resource
+from fastapi import Body, Request
 
-api = Namespace('api/text', description='text operations')
-
-@api.route('/chat/completions', methods=['POST'])
-class ChatCompletion(Resource):
+class ChatCompletion:
 
     # call i.e.:
-    # curl http://localhost:8080/api/text/chat/completions -H "Content-Type: application/json" -d '{"model": "gpt-3.5-turbo","messages": [{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": "Hello!"}]}'
-    @api.doc('chat_completions')
-    def post(self):
-        openai_api_key = current_app.config['OPENAI_API_KEY']
-        data = request.get_json()
+    # curl http://localhost:8042/api/v1/compute/chat/completions -H "Content-Type: application/json" -d '{"model": "gpt-3.5-turbo","messages": [{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": "Hello!"}]}'
+    def post(self, request: Request, data: dict | None = Body(default=None)):
+        openai_api_key = request.app.state.settings.openai_api_key.get_secret_value()
         if not data:
-            return jsonify({'error': 'No data provided'})
+            return {'error': 'No data provided'}
 
         messages = data.get('messages')
         if not messages:
-            return jsonify({'error': 'No messages provided'})
+            return {'error': 'No messages provided'}
 
         if not openai_api_key:
-            return jsonify({'error': 'No OpenAI API key provided'})
+            return {'error': 'No OpenAI API key provided'}
 
         headers = {
             'Authorization': f'Bearer {openai_api_key}',
@@ -29,10 +23,10 @@ class ChatCompletion(Resource):
         }
         data = {
             'messages': messages,
-            'model': 'gpt-3.5-turbo',
-            'temperature': 1.0,
-            'max_tokens': 50
+            'model': data.get('model', 'gpt-3.5-turbo'),
+            'temperature': data.get('temperature', 1.0),
+            'max_tokens': data.get('max_tokens', 50)
         }
 
         response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=data)
-        return jsonify(response.json())
+        return response.json()
