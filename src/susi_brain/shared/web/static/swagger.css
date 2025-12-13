@@ -1,0 +1,77 @@
+@import url("../ui-assets/amber.css");
+/* Swagger retains its own semantics and controls, with the shared Amber tokens. */
+html, body { color: var(--foreground0); background: var(--background0); font: var(--font-size)/var(--line-height) var(--font-family); }
+body { margin: 0; }
+body > header { display: flex; align-items: baseline; flex-wrap: wrap; gap: 1rem 2rem; padding: 1.25rem 2rem; border-bottom: 1px solid var(--amber-border); }
+body > header h1 { font: inherit; font-weight: 500; color: var(--amber-highlight); margin: 0 auto 0 0; }
+a { color: var(--amber-info); text-underline-offset: .2em; }
+:focus-visible { outline: 2px solid var(--amber-info) !important; outline-offset: 3px; }
+.swagger-ui { padding: 1rem 0 3rem; }
+.swagger-ui, .swagger-ui input, .swagger-ui textarea, .swagger-ui select, .swagger-ui button,
+.swagger-ui code, .swagger-ui pre, .swagger-ui .opblock .opblock-summary,
+.swagger-ui .opblock-description-wrapper p, .swagger-ui .opblock-external-docs-wrapper p,
+.swagger-ui .opblock-title_normal p, .swagger-ui .info p, .swagger-ui .info li,
+.swagger-ui .info table, .swagger-ui .renderedMarkdown, .swagger-ui h1, .swagger-ui h2,
+.swagger-ui h3, .swagger-ui h4, .swagger-ui h5 { font-family: var(--font-family); }
+.swagger-ui { color: var(--foreground0); font-size: 14px; }
+.swagger-ui, .swagger-ui * { font-family: var(--font-family) !important; }
+.swagger-ui .info .title { color: var(--amber-highlight); font-size: 24px; }
+.swagger-ui a, .swagger-ui .info a, .swagger-ui .opblock .opblock-summary-path,
+.swagger-ui .opblock .opblock-summary-operation-id { color: var(--amber-info); }
+.swagger-ui p, .swagger-ui .info p, .swagger-ui .info li, .swagger-ui label,
+.swagger-ui .opblock .opblock-summary-description, .swagger-ui .parameter__name,
+.swagger-ui .parameter__type, .swagger-ui .response-col_status,
+.swagger-ui .response-col_description, .swagger-ui .response-col_links,
+.swagger-ui .opblock-description-wrapper p, .swagger-ui .opblock-title_normal p,
+.swagger-ui .tab li, .swagger-ui .model-title, .swagger-ui .model,
+.swagger-ui .model-box, .swagger-ui .opblock-tag, .swagger-ui table thead tr th,
+.swagger-ui .responses-inner h4, .swagger-ui .responses-inner h5,
+.swagger-ui .servers-title, .swagger-ui .parameter__in,
+.swagger-ui section.models h4, .swagger-ui .prop-format { color: var(--foreground1); }
+.swagger-ui .opblock, .swagger-ui section.models, .swagger-ui .model-container,
+.swagger-ui .btn, .swagger-ui input, .swagger-ui textarea, .swagger-ui select,
+.swagger-ui .scheme-container, .swagger-ui .model-box, .swagger-ui .dialog-ux .modal-ux {
+  border-radius: 0; box-shadow: none;
+}
+.swagger-ui .opblock[class] { background: transparent; border: 1px solid var(--amber-border); }
+.swagger-ui .opblock[class] .opblock-summary, .swagger-ui .opblock-tag { border-color: var(--amber-border); }
+.swagger-ui .opblock[class] .opblock-summary-method { background: var(--background2); color: var(--foreground0); border-radius: 0; text-shadow: none; }
+.swagger-ui .opblock.opblock-post .opblock-summary-method { color: var(--amber-success); }
+.swagger-ui .opblock.opblock-delete .opblock-summary-method { color: var(--amber-error); }
+.swagger-ui .opblock .opblock-section-header, .swagger-ui .scheme-container,
+.swagger-ui .model-box, .swagger-ui section.models .model-container,
+.swagger-ui .dialog-ux .modal-ux, .swagger-ui .dialog-ux .modal-ux-header { background: var(--background1); border-color: var(--amber-border); }
+.swagger-ui .opblock .opblock-section-header h4, .swagger-ui .dialog-ux .modal-ux h3,
+.swagger-ui .dialog-ux .modal-ux label { color: var(--amber-highlight); }
+.swagger-ui input, .swagger-ui textarea, .swagger-ui select { color: var(--foreground0); background: var(--background1); border: 1px solid var(--amber-border); }
+.swagger-ui input::placeholder, .swagger-ui textarea::placeholder { color: var(--foreground2); }
+.swagger-ui .btn { color: var(--foreground0); border: 1px solid var(--amber-border); background: transparent; }
+.swagger-ui .btn:hover { background: var(--background2); }
+.swagger-ui .btn.execute { background: var(--foreground0); color: var(--background0); border-color: var(--foreground0); }
+.swagger-ui .btn.authorize { color: var(--amber-success); border-color: var(--amber-success); }
+.swagger-ui .btn.authorize svg { fill: var(--amber-success); }
+.swagger-ui svg { fill: var(--foreground0); }
+.swagger-ui svg path { fill: var(--foreground0); }
+.swagger-ui .btn.authorize svg path { fill: var(--amber-success); }
+.swagger-ui .highlight-code, .swagger-ui .highlight-code > .microlight,
+.swagger-ui .microlight, .swagger-ui .curl-command, .swagger-ui .download-contents {
+  color: var(--amber-data); background: var(--background0) !important; border-radius: 0;
+}
+.swagger-ui .highlight-code code, .swagger-ui .highlight-code span { color: var(--amber-data) !important; background: transparent !important; }
+.swagger-ui .info .title small { background: var(--background2); color: var(--amber-data); border-radius: 0; }
+.swagger-ui .info .title small.version-stamp { background: var(--background2); color: var(--amber-data); }
+.swagger-ui .info .title small pre { color: inherit; font-size: 12px; }
+.swagger-ui .prop-type { color: var(--amber-data); }
+.swagger-ui .parameter__name.required::after, .swagger-ui .parameter__name.required span { color: var(--amber-error); }
+.swagger-ui section.models { border-color: var(--amber-border); }
+.swagger-ui .errors-wrapper { background: var(--background1); border-color: var(--amber-error); color: var(--amber-error); }
+@media (max-width: 719px) {
+  body > header { padding: 1rem; }
+  .swagger-ui .wrapper { padding: 0 1rem; }
+  .swagger-ui .opblock .opblock-summary { flex-wrap: wrap; gap: .4rem; }
+  .swagger-ui .opblock-summary-path { max-width: 70%; overflow-wrap: anywhere; }
+  .swagger-ui .table-container { overflow: auto; }
+  .swagger-ui .opblock-body, .swagger-ui .responses-wrapper { min-width: 0; max-width: 100%; overflow-x: auto; }
+  .swagger-ui .highlight-code, .swagger-ui pre { min-width: 0; max-width: 100%; overflow-x: auto; }
+  .swagger-ui .info a, .swagger-ui .request-url { overflow-wrap: anywhere; }
+}

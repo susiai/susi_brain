@@ -23,6 +23,10 @@ dependencies = {file = ["src/susi_brain/compute/requirements.txt"]}
 [tool.setuptools.dynamic.optional-dependencies]
 dev = {file = ["requirements-dev.txt"]}
 
+[tool.setuptools.package-data]
+"susi_brain.compute" = ["fixtures/*.png"]
+"susi_brain.shared" = ["NOTICE.md", "licenses/*.txt", "web/static/*", "web/static/vendor/swagger-ui/*", "web/static/vendor/webtui-0.1.10/*.css", "web/static/vendor/webtui-0.1.10/utils/*.css", "web/static/vendor/webtui-0.1.10/components/*.css", "web/static/vendor/ibm-plex-mono-2.5.0/*.woff2", "web/static/vendor/manifest.json"]
+
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "test/test_chat_proxy.py", "test/test_calibration.py", "test/test_compute_web.py", "test/test_monitoring.py", "test/test_daily_log.py", "test/test_speech_proxy.py", "test/test_stream_metadata.py"]
 pythonpath = ["src"]

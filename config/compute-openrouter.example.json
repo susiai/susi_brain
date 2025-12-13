@@ -1,0 +1,24 @@
+{
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8042
+  },
+  "compute": {
+    "endpoints": [
+      {
+        "url": "https://openrouter.ai/api/v1",
+        "api_key_env": "OPENROUTER_API_KEY"
+      }
+    ],
+    "smart": [{"name": "provider/your-smart-model", "ranking": 90}],
+    "small": [{"name": "provider/your-small-model", "ranking": 30}],
+    "speech": [],
+    "model_probe_timeout_seconds": 10,
+    "chat_timeout_seconds": 120,
+    "speech_timeout_seconds": 120,
+    "calibration_timeout_seconds": 60,
+    "calibration_max_pairs": 1024,
+    "request_log_capacity": 10000,
+    "request_log_directory": "logs/compute"
+  }
+}

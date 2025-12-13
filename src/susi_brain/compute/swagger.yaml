@@ -200,17 +200,176 @@ paths:
                 - offline-docs
                 - chat
                 - audio-transcription
+                - speech
                 - file-storage
                 - search
                 - system-metrics
+                - provider-selection
+                - endpoint-calibration
+                - web-interface
+                - request-monitoring
                 pending:
                 - resident-model-lifecycle
-                - provider-selection
                 - decision-interface
                 - resource-admission-control
                 - embedding
-                - speech
                 dependencies: []
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      parameters:
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+  /api/v1/compute/ui-assets/{asset_path}:
+    get:
+      tags:
+      - Interface
+      summary: Theme Asset
+      description: Serve only the explicit local theme asset allowlist. Includes WebTUI
+        base, box utilities and components, the custom Amber palette, and regular/medium
+        IBM Plex Mono fonts. No CDN, package manager or frontend runtime is required.
+        Deployment prefixes are resolved by relative CSS imports. Unknown paths and
+        traversal return 404; application files and configuration are never exposed.
+      operationId: compute__theme_asset
+      parameters:
+      - name: asset_path
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Asset Path
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+      responses:
+        '200':
+          description: Local WebTUI 0.1.10 CSS, Amber theme or IBM Plex Mono 2.5.0
+            font
+          content:
+            application/json:
+              schema: {}
+            text/css:
+              schema:
+                type: string
+            font/woff2:
+              schema:
+                type: string
+                format: binary
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Asset is not in the packaged public allowlist
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+  /api/v1/compute/docs-assets/theme.css:
+    get:
+      summary: Theme
+      description: Local Amber terminal Swagger theme shared with the SUSI application
+        interfaces. Uses packaged IBM Plex Mono fonts and semantic status colors.
+      operationId: compute__swagger_theme
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/css:
+              schema:
+                type: string
           headers:
             X-Request-ID:
               description: The accepted or generated request correlation ID.
@@ -272,9 +431,11 @@ paths:
   /api/v1/compute/docs:
     get:
       summary: Documentation
-      description: Explore and execute API requests with Swagger UI. JavaScript, CSS
-        and icons are served locally from docs-assets; no CDN or external validator
-        is used. Requests target the current origin and deployment prefix.
+      description: Explore and execute API requests with Swagger UI in the local Amber
+        terminal design. JavaScript, CSS, theme and icons are served locally from
+        docs-assets, with shared fonts/theme in ui-assets; no CDN or external validator
+        is used. Requests target the current origin and deployment prefix. Compute
+        includes a link back to its operational interface.
       operationId: compute__docs
       responses:
         '200':
@@ -491,17 +652,482 @@ paths:
         schema:
           type: string
           pattern: ^[A-Za-z0-9._-]{1,64}$
-  /api/v1/compute/chat/completions:
+  /v1/audio/speech:
     post:
       tags:
       - Services
-      summary: Generate a chat completion
-      description: Generate a chat completion. Forwards messages, model, temperature
-        and max_tokens to OpenAI. Omitted options default to model gpt-3.5-turbo,
-        temperature 1.0 and max_tokens 50; other request options are ignored. Uses
-        the configured OpenAI key. Missing data, messages or key return an error dictionary
-        with HTTP 200. Returns the provider JSON, including provider errors, with
-        HTTP 200.
+      summary: Generate speech through an Ollama endpoint
+      description: Generate streamed 24 kHz mono 16-bit PCM WAV through a configured
+        Ollama server. model is a concrete name from compute.speech, with optional
+        :latest; smart/small are chat-only. input is required, nonblank and at most
+        4096 Unicode characters. voice defaults to the model configuration (default
+        if omitted there). Voice matching ignores case and accents, as in Ollama.
+        Only response_format=wav (default), speed=1 and stream_format=audio (default)
+        are supported. instructions, SSE, other formats and unknown fields return
+        400; no transcoding is performed. Every valid request reads bounded /models
+        inventories and /api/show metadata to find an advertised speech-capable model
+        and voice. /api/show replaces the trailing /v1 in the configured base with
+        /api/show, preserving a deployment prefix; TTS bases must end in /v1. Discovery
+        defaults to 3 seconds and 1 MiB per response. Choose the endpoint with the
+        fewest shared Chat/TTS/calibration reservations, then lowest calibrated real_time_factor
+        and ttfa_seconds for the exact model/voice; unknown metrics sort last and
+        final ties use endpoint order. Selection/reservation is atomic in this process;
+        no hard single-model lock, waiting queue or cross-worker accounting. Configured
+        endpoint Bearer credentials and verified TLS are shared with chat; caller
+        keys/cookies, redirects and upstream cookies are not forwarded. No download,
+        automatic replay or fallback to a different model/voice. WAV headers and first
+        PCM frames are validated before success headers; audio streams without whole-response
+        buffering. Ollama may use 0xffffffff WAV size placeholders. Headers and PCM
+        are forwarded unchanged; clients must accept unknown-length streamed WAV.
+        The response limit is 32 MiB; speech_timeout_seconds defaults to 120 for upstream
+        operations/idle reads and waiting for first audio, not a total generation
+        deadline. Failures after headers terminate the audio stream, never append
+        JSON or change its status; monitoring marks them failed. All paths release
+        the reservation after closing the upstream response. X-Compute-Target is ASCII
+        JSON with endpoint_id, concrete model, voice and expected {ttfa_seconds, real_time_factor};
+        metrics are copied at reservation time and null before a matching successful
+        calibration. The header is exposed through CORS. Upstream error status/body/Content-Type/Retry-After
+        are preserved within 1 MiB; redirect and transport failures produce local
+        JSON errors. Request logging stores only target/timing metadata, never input
+        text or audio. This is a WAV-only OpenAI-compatible subset; unlike OpenAI
+        the default output format here is WAV. Ollama speech currently requires Apple
+        Silicon; the Compute proxy itself can run on Linux/Docker.
+      operationId: compute__speech
+      requestBody:
+        content:
+          application/json:
+            schema:
+              anyOf:
+              - additionalProperties: true
+                type: object
+              - type: 'null'
+              properties:
+                model:
+                  type: string
+                  maxLength: 256
+                  minLength: 1
+                input:
+                  type: string
+                  maxLength: 4096
+                  minLength: 1
+                voice:
+                  type: string
+                  maxLength: 256
+                  minLength: 1
+                  description: Configured default voice when omitted.
+                response_format:
+                  type: string
+                  const: wav
+                  default: wav
+                speed:
+                  type: number
+                  const: 1
+                  default: 1
+                stream_format:
+                  type: string
+                  const: audio
+                  default: audio
+              additionalProperties: false
+              type: object
+              required:
+              - model
+              - input
+              title: Data
+            example:
+              model: phonon
+              input: Hello from Compute.
+              voice: default
+              response_format: wav
+        required: true
+      responses:
+        '200':
+          description: Streamed PCM WAV, including unknown-size Ollama headers
+          headers:
+            X-Compute-Target:
+              description: 'ASCII JSON {endpoint_id, model, voice, expected: {ttfa_seconds,
+                real_time_factor}}. Missing metrics are null.'
+              schema:
+                type: string
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+          content:
+            audio/wav:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '400':
+          description: Invalid model/input/voice or unsupported speech options; upstream
+            rejection may also return 400.
+          content:
+            application/json:
+              schema:
+                properties:
+                  error:
+                    properties:
+                      message:
+                        type: string
+                      type:
+                        type: string
+                      param:
+                        type:
+                        - string
+                        - 'null'
+                      code:
+                        type: string
+                    type: object
+                type: object
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '429':
+          description: Upstream rate limit; Retry-After is preserved.
+          headers:
+            Retry-After:
+              description: 1 for local unavailability; otherwise the upstream value.
+              schema:
+                type: string
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                properties:
+                  error:
+                    properties:
+                      message:
+                        type: string
+                      type:
+                        type: string
+                      param:
+                        type:
+                        - string
+                        - 'null'
+                      code:
+                        type: string
+                    type: object
+                type: object
+        '502':
+          description: Upstream redirect, connection failure, oversized error or invalid
+            WAV before response headers.
+          content:
+            application/json:
+              schema:
+                properties:
+                  error:
+                    properties:
+                      message:
+                        type: string
+                      type:
+                        type: string
+                      param:
+                        type:
+                        - string
+                        - 'null'
+                      code:
+                        type: string
+                    type: object
+                type: object
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '503':
+          description: 'No compatible configured Ollama model/voice or inactive transport;
+            Retry-After: 1.'
+          headers:
+            Retry-After:
+              description: 1 for local unavailability; otherwise the upstream value.
+              schema:
+                type: string
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                properties:
+                  error:
+                    properties:
+                      message:
+                        type: string
+                      type:
+                        type: string
+                      param:
+                        type:
+                        - string
+                        - 'null'
+                      code:
+                        type: string
+                    type: object
+                type: object
+        '504':
+          description: Upstream operation or first-audio timeout before response headers.
+          content:
+            application/json:
+              schema:
+                properties:
+                  error:
+                    properties:
+                      message:
+                        type: string
+                      type:
+                        type: string
+                      param:
+                        type:
+                        - string
+                        - 'null'
+                      code:
+                        type: string
+                    type: object
+                type: object
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      parameters:
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+  /api/v1/compute/chat/connections:
+    get:
+      tags:
+      - Services
+      summary: Connections
+      description: Read shared Chat/TTS reservations per endpoint and concrete model
+        without upstream calls. Counts include connecting/waiting requests, JSON responses,
+        SSE/WAV upstream lifetimes and calibration checks. Chat releases on [DONE]
+        without waiting for upstream EOF or client draining; otherwise cleanup releases
+        on completion, error, timeout, cancellation or disconnect. WAV releases after
+        streaming cleanup. Discovery, idle pooled sockets and ordinary metadata reads
+        are excluded. Selection/reservation is atomic after discovery. Calibration
+        checks reserve for the whole check, including sequential forms calls or availability
+        metadata. Chat and speech selection share endpoint load. Empty endpoints have
+        zero and an empty models dictionary. Counters are process-local, start at
+        zero and are not shared between workers. IDs match calibration endpoint IDs;
+        no credentials are exposed. The historical chat/connections path also covers
+        TTS.
+      operationId: compute__chat_connections
+      responses:
+        '200':
+          description: Current process-local proxy reservations
+          content:
+            application/json:
+              schema:
+                properties:
+                  storage:
+                    type: string
+                    const: process-local
+                  active_connections:
+                    type: integer
+                    minimum: 0.0
+                  endpoints:
+                    items:
+                      properties:
+                        id:
+                          type: string
+                        url:
+                          type: string
+                        active_connections:
+                          type: integer
+                          minimum: 0.0
+                        models:
+                          additionalProperties:
+                            type: integer
+                            minimum: 1.0
+                          type: object
+                      type: object
+                      required:
+                      - id
+                      - url
+                      - active_connections
+                      - models
+                    type: array
+                type: object
+                required:
+                - storage
+                - active_connections
+                - endpoints
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      parameters:
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+  /v1/chat/completions:
+    post:
+      tags:
+      - Services
+      summary: Proxy a chat completion using model smart or small
+      description: 'Proxy a chat completion using model smart or small. Both model
+        and nonempty messages are required. Queries each configured API base URL plus
+        /models concurrently for every valid request. Legacy host:port targets use
+        http://host:port/v1; URL objects preserve HTTP(S) and API prefixes such as
+        https://openrouter.ai/api/v1. Each object may set api_key or api_key_env for
+        its own Bearer credential, used for both discovery and chat. A missing/empty
+        referenced key is a startup configuration error. Reserves the matching endpoint
+        with the fewest active requests, counting all models, Chat JSON/SSE, TTS WAV
+        and calibration checks. On each endpoint, reuses an active model in the requested
+        group when one is available; otherwise another model may be used. Among endpoints
+        with equal load, smart selects the highest operator-configured numeric ranking,
+        then the fastest model; small selects the fastest model regardless of ranking.
+        Group configuration accepts model-name strings (ranking 0) or objects with
+        name and finite numeric ranking (default 0). Speed uses calibration tokens_per_second
+        descending, then ttft_seconds ascending; missing measurements sort last for
+        each metric. Remaining ties use model-list then endpoint order. There is no
+        waiting queue or hard single-model lock. Selection and reservation are atomic
+        within this process; counters are not shared across workers. GET /api/v1/compute/chat/connections
+        exposes live counts. Model discovery compares names case-insensitively and
+        forwards the advertised spelling. Only model is rewritten; all other request
+        JSON fields pass through with backend defaults. Streaming follows triton_llmlb:
+        the first data line (when it contains a JSON object) and the first terminal
+        completion object receive four top-level fields: modelname (the concrete selected
+        model), compute_group (smart/small), compute_hostname (selected API base''s
+        hostname, without port/path) and request_bytes (original incoming UTF-8 HTTP
+        body length, before model rewriting; no headers). These proxy-owned values
+        override same-named upstream fields on those two objects; the standard model
+        field is preserved. Byte lines are assembled across network chunks; only the
+        first data payload and byte-prefiltered terminal candidates are parsed. A
+        terminal candidate contains a string-valued finish_reason, then must have
+        a non-null finish_reason in a choice. The first event may itself be terminal
+        and is then annotated once. Annotation reserializes the JSON as UTF-8 data:
+        ... with LF/LF framing. Middle lines, content/thinking/tool deltas, usage-only
+        events, invalid/non-object JSON and ordinary SSE framing pass unchanged; multiline
+        JSON data is not combined for annotation. Like the reference, an invalid first
+        data line consumes the first-line attempt. No usage request, token counts,
+        finish reason or missing completion is synthesized. Receiving [DONE], even
+        without a final newline, closes upstream and releases its reservation immediately;
+        already received trailing blank framing is preserved without waiting for EOF.
+        HTTPX handles upstream content encoding; HTTP chunk boundaries can change.
+        Streams disable caches/proxy buffering and request no-transform. Forwarded
+        JSON and SSE responses add X-Compute-Target: an ASCII JSON object containing
+        endpoint_id, the concrete model and expected {tokens_per_second, ttft_seconds}.
+        These are a snapshot of the selected pair''s calibration at reservation time;
+        unavailable metrics are null. The header is exposed through CORS. Upstream
+        status, Content-Type and Retry-After are preserved; non-streaming/error bodies
+        remain unchanged. Only the selected endpoint''s configured key is sent upstream;
+        caller credentials/cookies and redirects are not forwarded. HTTPS certificates
+        are verified. The server OpenAI key is used only by cloud audio, not this
+        proxy. No model provisioning or automatic chat retries. Discovery defaults
+        to a 3-second deadline per endpoint and a 1 MiB inventory limit; chat uses
+        a 120-second upstream operation/idle timeout and an 8 MiB upstream body limit.
+        The browser allows an extra 8 KiB for annotation/framing overhead. Failures
+        after response headers terminate the stream and are recorded as failed; no
+        proxy-generated error or [DONE] frame is appended. Upstream cleanup always
+        releases the reservation. The Chat UI displays the stream''s selected model,
+        host, group and original request size; expected speed remains in X-Compute-Target
+        and actual speed uses unchanged upstream usage. Frontend rendering and explicit
+        calibration parse their own streams separately. Readiness does not imply an
+        available model. Malformed JSON/body types use native 422 problems.'
       operationId: compute__chat_0
       requestBody:
         content:
@@ -518,33 +1144,84 @@ paths:
                   type: array
                 model:
                   type: string
-                  default: gpt-3.5-turbo
+                  enum:
+                  - smart
+                  - small
                 temperature:
                   type: number
-                  default: 1.0
                 max_tokens:
                   type: integer
-                  default: 50
+                stream:
+                  type: boolean
+                  default: false
+                stream_options:
+                  properties:
+                    include_usage:
+                      type: boolean
+                      description: Request final upstream token usage; provider support
+                        is required.
+                  type: object
+                reasoning_effort:
+                  type: string
+                  description: Passed through. The local chat uses medium for Thinking
+                    on and none for off; supported values depend on the provider/model.
+                reasoning:
+                  properties:
+                    enabled:
+                      type: boolean
+                  type: object
+                  description: Passed-through provider reasoning options. The local
+                    chat sets enabled to the Thinking toggle.
+                chat_template_kwargs:
+                  properties:
+                    enable_thinking:
+                      type: boolean
+                  type: object
+                  description: Passed-through local-server template options. The local
+                    chat sets enable_thinking to the Thinking toggle.
               type: object
               required:
               - messages
+              - model
               title: Data
             example:
+              model: small
               messages:
               - role: user
                 content: Hello
         required: false
       responses:
         '200':
-          description: Service response
-          content:
-            application/json:
-              schema: {}
+          description: Upstream JSON or SSE with first/terminal routing metadata
           headers:
+            X-Compute-Target:
+              description: ASCII JSON, e.g. {"endpoint_id":"ep-0123456789abcdef","model":"fast-model","expected":{"tokens_per_second":42.5,"ttft_seconds":0.2}}.
+                Exact selected-pair calibration copied before upstream I/O; missing
+                metrics are null. Also present on other forwarded upstream statuses,
+                absent on proxy-generated errors. Contains no credentials or endpoint
+                URL.
+              schema:
+                type: string
             X-Request-ID:
               description: The accepted or generated request correlation ID.
               schema:
                 type: string
+          content:
+            application/json:
+              schema: {}
+            text/event-stream:
+              schema:
+                type: string
+              example: 'data: {"choices":[{"delta":{"role":"assistant"},"finish_reason":null}],"modelname":"fast-model","compute_group":"small","compute_hostname":"llm.example","request_bytes":123}
+
+
+                data: {"choices":[{"delta":{},"finish_reason":"stop"}],"modelname":"fast-model","compute_group":"small","compute_hostname":"llm.example","request_bytes":123}
+
+
+                data: [DONE]
+
+
+                '
         '404':
           description: Resource not found
           content:
@@ -592,10 +1269,32 @@ paths:
               schema:
                 type: string
         '400':
-          description: Invalid input
+          description: Missing/invalid model alias, messages or stream flag.
           content:
             application/json:
-              schema: {}
+              schema:
+                properties:
+                  error:
+                    properties:
+                      message:
+                        type: string
+                      type:
+                        type: string
+                      param:
+                        type:
+                        - string
+                        - 'null'
+                      code:
+                        type: string
+                    type: object
+                    required:
+                    - message
+                    - type
+                    - param
+                    - code
+                type: object
+                required:
+                - error
           headers:
             X-Request-ID:
               description: The accepted or generated request correlation ID.
@@ -612,6 +1311,131 @@ paths:
               description: The accepted or generated request correlation ID.
               schema:
                 type: string
+        '502':
+          description: Upstream connection, redirect, protocol or response-size failure.
+          content:
+            application/json:
+              schema:
+                properties:
+                  error:
+                    properties:
+                      message:
+                        type: string
+                      type:
+                        type: string
+                      param:
+                        type:
+                        - string
+                        - 'null'
+                      code:
+                        type: string
+                    type: object
+                    required:
+                    - message
+                    - type
+                    - param
+                    - code
+                type: object
+                required:
+                - error
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '503':
+          description: 'No configured/available model in this group; Retry-After:
+            1.'
+          headers:
+            Retry-After:
+              description: 1 for proxy unavailability; otherwise the upstream value.
+              schema:
+                type: string
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                properties:
+                  error:
+                    properties:
+                      message:
+                        type: string
+                      type:
+                        type: string
+                      param:
+                        type:
+                        - string
+                        - 'null'
+                      code:
+                        type: string
+                    type: object
+                    required:
+                    - message
+                    - type
+                    - param
+                    - code
+                type: object
+                required:
+                - error
+        '504':
+          description: Selected chat server timed out.
+          content:
+            application/json:
+              schema:
+                properties:
+                  error:
+                    properties:
+                      message:
+                        type: string
+                      type:
+                        type: string
+                      param:
+                        type:
+                        - string
+                        - 'null'
+                      code:
+                        type: string
+                    type: object
+                    required:
+                    - message
+                    - type
+                    - param
+                    - code
+                type: object
+                required:
+                - error
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '429':
+          description: Upstream rate limit; body and Retry-After are preserved.
+          headers:
+            Retry-After:
+              schema:
+                type: string
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema: {}
+        default:
+          description: Upstream error status/body, including rate limits; Retry-After
+            is preserved.
+          content:
+            application/json:
+              schema: {}
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
       parameters:
       - name: X-Request-ID
         in: header
@@ -621,7 +1445,7 @@ paths:
         schema:
           type: string
           pattern: ^[A-Za-z0-9._-]{1,64}$
-  /api/v1/compute/audio/transcriptions:
+  /v1/audio/transcriptions:
     post:
       tags:
       - Services
@@ -629,10 +1453,13 @@ paths:
       description: Transcribe an audio file. The Authorization header overrides the
         configured OpenAI key. With a key, whisper-1 forwards to OpenAI; other supported
         names select local Whisper or Vosk models. Without a key every requested model
-        becomes tiny. Whisper loads on each request. Vosk requires mono PCM16 WAV
-        and an en-us model directory in the working directory. Missing files return
-        an error dictionary with HTTP 200; unsupported model names return an empty
-        dictionary. Vosk result processing can fail with HTTP 500.
+        becomes tiny. Whisper loads on each request. Local Whisper decodes supported
+        audio containers through FFmpeg and preserves the spoken language. The web
+        speech pane submits files or completed microphone recordings with model=tiny;
+        no live audio-stream protocol is provided. Vosk requires mono PCM16 WAV and
+        an en-us model directory in the working directory. Missing files return an
+        error dictionary with HTTP 200; unsupported model names return an empty dictionary.
+        Vosk result processing can fail with HTTP 500.
       operationId: compute__transcription_0
       requestBody:
         content:
@@ -643,6 +1470,9 @@ paths:
                 file:
                   type: string
                   format: binary
+                  description: Audio file bytes. Local Whisper decodes FFmpeg-supported
+                    containers, including WAV, MP3, M4A, OGG, FLAC and browser WebM/MP4
+                    recordings.
                 model:
                   type: string
                   description: tiny, base, small, medium, large, whisper-1, en-us
@@ -1223,6 +2053,3500 @@ paths:
               description: The accepted or generated request correlation ID.
               schema:
                 type: string
+  /api/v1/compute/calibration:
+    get:
+      summary: Results
+      description: Read progress and endpoint/model capability/latency snapshots without
+        triggering work. model_groups exposes smart/small names and rankings; speech_models
+        lists explicitly configured speech names/default voices even before calibration.
+        Each record has task chat or speech. Speech records expose Ollama voices and
+        the proxy's WAV format/sample rate in speech, the measured voice, capability
+        speech, and availability/speech/speed checks; chat-only capabilities remain
+        null. These audio probes validate nonempty aligned 24 kHz mono 16-bit PCM
+        WAV, not pronunciation, intelligibility or language quality. Speech metrics
+        use ttfa_seconds from before the POST until the first complete PCM frame (WAV
+        header alone does not count), audio_duration_seconds from actual PCM length,
+        and real_time_factor=full request duration/audio duration; lower is faster.
+        Timing includes transport/server load and only applies to the measured voice.
+        Results are process-local, replaced by each run and cleared on restart. Credentials,
+        prompts and generated audio/text are omitted. Null capabilities mean untested,
+        skipped or inconclusive; false means a fixed probe did not demonstrate support.
+        Chat forms validates three mood classifications; vision reads 42; thinking
+        detects exposed reasoning. Chat TTFT starts before the speed POST and ends
+        at the first nonempty content/reasoning delta. tokens_per_second=reported
+        completion_tokens/full stream duration including TTFT. generation_tokens_per_second=(completion_tokens-1)/(last-output-time-first-output-time),
+        null for unknown counts, one output event or hidden reasoning. Transport chunks
+        are never token counts. run completed means probes finished; inspect individual
+        checks for failures.
+      operationId: compute__calibration_results
+      responses:
+        '200':
+          description: Process-local calibration snapshot
+          content:
+            application/json:
+              schema:
+                properties:
+                  probe_version:
+                    type: string
+                  storage:
+                    type: string
+                  default_scope:
+                    type: string
+                    const: configured
+                  speech_models:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                        voice:
+                          type: string
+                          default: default
+                      type: object
+                      required:
+                      - name
+                      - voice
+                    type: array
+                  model_groups:
+                    properties:
+                      smart:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            ranking:
+                              type: number
+                              default: 0
+                          type: object
+                          required:
+                          - name
+                          - ranking
+                        type: array
+                      small:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            ranking:
+                              type: number
+                              default: 0
+                          type: object
+                          required:
+                          - name
+                          - ranking
+                        type: array
+                    type: object
+                    required:
+                    - smart
+                    - small
+                  endpoints:
+                    items:
+                      properties:
+                        id:
+                          type: string
+                        url:
+                          type: string
+                        key_configured:
+                          type: boolean
+                      type: object
+                      required:
+                      - id
+                      - url
+                      - key_configured
+                    type: array
+                  run:
+                    properties:
+                      id:
+                        type: string
+                      state:
+                        type: string
+                        enum:
+                        - running
+                        - completed
+                        - failed
+                        - cancelled
+                      phase:
+                        type: string
+                        enum:
+                        - discovery
+                        - features
+                        - speed
+                        - completed
+                        - failed
+                        - cancelled
+                      scope:
+                        type: string
+                        enum:
+                        - configured
+                        - all
+                      started_at:
+                        type: string
+                      finished_at:
+                        type:
+                        - string
+                        - 'null'
+                      total_models:
+                        type: integer
+                        minimum: 0.0
+                      features_completed:
+                        type: integer
+                        minimum: 0.0
+                      completed_models:
+                        type: integer
+                        minimum: 0.0
+                      current:
+                        properties:
+                          endpoint_id:
+                            type: string
+                          model:
+                            type: string
+                          step:
+                            type: string
+                        type:
+                        - object
+                        - 'null'
+                      error_code:
+                        type:
+                        - string
+                        - 'null'
+                      discovery:
+                        additionalProperties:
+                          properties:
+                            state:
+                              type: string
+                            model_count:
+                              type: integer
+                            error_code:
+                              type:
+                              - string
+                              - 'null'
+                          type: object
+                        type: object
+                    type:
+                    - object
+                    - 'null'
+                  results:
+                    additionalProperties:
+                      additionalProperties:
+                        properties:
+                          endpoint_id:
+                            type: string
+                          model:
+                            type: string
+                          requested_model:
+                            type: string
+                          groups:
+                            items:
+                              type: string
+                              enum:
+                              - smart
+                              - small
+                              - speech
+                            type: array
+                          task:
+                            type: string
+                            enum:
+                            - chat
+                            - speech
+                          voice:
+                            type: string
+                          speech:
+                            properties:
+                              voices:
+                                items:
+                                  type: string
+                                type: array
+                              formats:
+                                items:
+                                  type: string
+                                  const: wav
+                                type: array
+                              sample_rate:
+                                type: integer
+                                const: 24000
+                              channels:
+                                type: integer
+                                const: 1
+                              sample_width:
+                                type: integer
+                                const: 2
+                            type:
+                            - object
+                            - 'null'
+                          listed:
+                            type:
+                            - boolean
+                            - 'null'
+                          available:
+                            type:
+                            - boolean
+                            - 'null'
+                          state:
+                            type: string
+                            enum:
+                            - pending
+                            - running
+                            - unavailable
+                            - completed
+                            - failed
+                            - cancelled
+                          capabilities:
+                            properties:
+                              forms:
+                                type:
+                                - boolean
+                                - 'null'
+                              vision:
+                                type:
+                                - boolean
+                                - 'null'
+                              thinking:
+                                type:
+                                - boolean
+                                - 'null'
+                              speech:
+                                type:
+                                - boolean
+                                - 'null'
+                            type: object
+                            required:
+                            - forms
+                            - vision
+                            - thinking
+                          checks:
+                            properties:
+                              availability:
+                                properties:
+                                  state:
+                                    type: string
+                                    enum:
+                                    - pending
+                                    - running
+                                    - passed
+                                    - not_demonstrated
+                                    - rejected
+                                    - error
+                                    - skipped
+                                    - cancelled
+                                    - not_listed
+                                  passed:
+                                    type:
+                                    - boolean
+                                    - 'null'
+                                  error_code:
+                                    type:
+                                    - string
+                                    - 'null'
+                                  http_status:
+                                    type:
+                                    - integer
+                                    - 'null'
+                                  duration_seconds:
+                                    type:
+                                    - number
+                                    - 'null'
+                                    minimum: 0.0
+                                type: object
+                                required:
+                                - state
+                                - passed
+                                - error_code
+                                - http_status
+                                - duration_seconds
+                              forms:
+                                properties:
+                                  state:
+                                    type: string
+                                    enum:
+                                    - pending
+                                    - running
+                                    - passed
+                                    - not_demonstrated
+                                    - rejected
+                                    - error
+                                    - skipped
+                                    - cancelled
+                                    - not_listed
+                                  passed:
+                                    type:
+                                    - boolean
+                                    - 'null'
+                                  error_code:
+                                    type:
+                                    - string
+                                    - 'null'
+                                  http_status:
+                                    type:
+                                    - integer
+                                    - 'null'
+                                  duration_seconds:
+                                    type:
+                                    - number
+                                    - 'null'
+                                    minimum: 0.0
+                                type: object
+                                required:
+                                - state
+                                - passed
+                                - error_code
+                                - http_status
+                                - duration_seconds
+                              vision:
+                                properties:
+                                  state:
+                                    type: string
+                                    enum:
+                                    - pending
+                                    - running
+                                    - passed
+                                    - not_demonstrated
+                                    - rejected
+                                    - error
+                                    - skipped
+                                    - cancelled
+                                    - not_listed
+                                  passed:
+                                    type:
+                                    - boolean
+                                    - 'null'
+                                  error_code:
+                                    type:
+                                    - string
+                                    - 'null'
+                                  http_status:
+                                    type:
+                                    - integer
+                                    - 'null'
+                                  duration_seconds:
+                                    type:
+                                    - number
+                                    - 'null'
+                                    minimum: 0.0
+                                type: object
+                                required:
+                                - state
+                                - passed
+                                - error_code
+                                - http_status
+                                - duration_seconds
+                              thinking:
+                                properties:
+                                  state:
+                                    type: string
+                                    enum:
+                                    - pending
+                                    - running
+                                    - passed
+                                    - not_demonstrated
+                                    - rejected
+                                    - error
+                                    - skipped
+                                    - cancelled
+                                    - not_listed
+                                  passed:
+                                    type:
+                                    - boolean
+                                    - 'null'
+                                  error_code:
+                                    type:
+                                    - string
+                                    - 'null'
+                                  http_status:
+                                    type:
+                                    - integer
+                                    - 'null'
+                                  duration_seconds:
+                                    type:
+                                    - number
+                                    - 'null'
+                                    minimum: 0.0
+                                type: object
+                                required:
+                                - state
+                                - passed
+                                - error_code
+                                - http_status
+                                - duration_seconds
+                              speech:
+                                properties:
+                                  state:
+                                    type: string
+                                    enum:
+                                    - pending
+                                    - running
+                                    - passed
+                                    - not_demonstrated
+                                    - rejected
+                                    - error
+                                    - skipped
+                                    - cancelled
+                                    - not_listed
+                                  passed:
+                                    type:
+                                    - boolean
+                                    - 'null'
+                                  error_code:
+                                    type:
+                                    - string
+                                    - 'null'
+                                  http_status:
+                                    type:
+                                    - integer
+                                    - 'null'
+                                  duration_seconds:
+                                    type:
+                                    - number
+                                    - 'null'
+                                    minimum: 0.0
+                                type: object
+                                required:
+                                - state
+                                - passed
+                                - error_code
+                                - http_status
+                                - duration_seconds
+                              speed:
+                                properties:
+                                  state:
+                                    type: string
+                                    enum:
+                                    - pending
+                                    - running
+                                    - passed
+                                    - not_demonstrated
+                                    - rejected
+                                    - error
+                                    - skipped
+                                    - cancelled
+                                    - not_listed
+                                  passed:
+                                    type:
+                                    - boolean
+                                    - 'null'
+                                  error_code:
+                                    type:
+                                    - string
+                                    - 'null'
+                                  http_status:
+                                    type:
+                                    - integer
+                                    - 'null'
+                                  duration_seconds:
+                                    type:
+                                    - number
+                                    - 'null'
+                                    minimum: 0.0
+                                type: object
+                                required:
+                                - state
+                                - passed
+                                - error_code
+                                - http_status
+                                - duration_seconds
+                            type: object
+                            required:
+                            - availability
+                            - speed
+                          metrics:
+                            properties:
+                              ttft_seconds:
+                                type:
+                                - number
+                                - 'null'
+                                minimum: 0.0
+                              duration_seconds:
+                                type:
+                                - number
+                                - 'null'
+                                minimum: 0.0
+                              generation_seconds:
+                                type:
+                                - number
+                                - 'null'
+                                minimum: 0.0
+                              completion_tokens:
+                                type:
+                                - integer
+                                - 'null'
+                                minimum: 1.0
+                              reasoning_tokens:
+                                type:
+                                - integer
+                                - 'null'
+                                minimum: 0.0
+                              tokens_per_second:
+                                type:
+                                - number
+                                - 'null'
+                                minimum: 0.0
+                              generation_tokens_per_second:
+                                type:
+                                - number
+                                - 'null'
+                                minimum: 0.0
+                              first_token_kind:
+                                type: string
+                                enum:
+                                - content
+                                - reasoning
+                              token_count_source:
+                                type: string
+                                enum:
+                                - upstream_usage
+                                - unavailable
+                              timing_source:
+                                type: string
+                                enum:
+                                - client_monotonic_stream
+                                - client_monotonic_audio_stream
+                              ttfa_seconds:
+                                type:
+                                - number
+                                - 'null'
+                                minimum: 0.0
+                              audio_duration_seconds:
+                                type:
+                                - number
+                                - 'null'
+                                minimum: 0.0
+                              real_time_factor:
+                                type:
+                                - number
+                                - 'null'
+                                minimum: 0.0
+                              audio_bytes:
+                                type: integer
+                                minimum: 1.0
+                              sample_rate:
+                                type: integer
+                                const: 24000
+                              channels:
+                                type: integer
+                                const: 1
+                            type:
+                            - object
+                            - 'null'
+                          started_at:
+                            type:
+                            - string
+                            - 'null'
+                          finished_at:
+                            type:
+                            - string
+                            - 'null'
+                        type: object
+                        required:
+                        - endpoint_id
+                        - model
+                        - requested_model
+                        - task
+                        - groups
+                        - listed
+                        - available
+                        - state
+                        - capabilities
+                        - checks
+                        - metrics
+                        - started_at
+                        - finished_at
+                      type: object
+                    type: object
+                    description: Endpoint ID -> concrete model name -> latest probe
+                      record.
+                type: object
+                required:
+                - probe_version
+                - storage
+                - default_scope
+                - model_groups
+                - speech_models
+                - endpoints
+                - run
+                - results
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      parameters:
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+    post:
+      summary: Start
+      description: Explicitly start one background calibration. Default scope is the
+        union of configured smart/small/speech models on every selected endpoint;
+        all probes advertised models instead. Speech configuration recognizes Ollama's
+        omitted :latest tag. In all scope, /api/show detects additional speech models;
+        non-speech models and servers without Ollama metadata retain chat probes.
+        Optional concrete model and configured endpoint-ID filters bound the run.
+        Configured filters must name smart/small/speech entries. Speech availability
+        checks metadata/voice, then one fixed short WAV synthesis demonstrates speech;
+        only a successful functional audio probe permits the separate longer speed
+        sample. Chat availability/forms/vision/thinking probes retain their existing
+        behavior. ALL model function tests finish before ANY speed sample. Chat speed
+        uses 256 output tokens; audio probes use at most 1 MiB and a 60-second default
+        per-check deadline, including metadata. Each check shares the same connection
+        counters as Chat/TTS and releases on cancellation/failure; inventories and
+        ordinary metadata discovery do not reserve. No arbitrary URL/prompt, automatic
+        startup run, retries, model download or persistence. Starting replaces previous
+        results. Authenticated HTTP pool, TLS and bounded discovery are shared with
+        chat. calibration_max_pairs defaults to 1024; excess discovery fails before
+        inference. Calls can incur configured provider charges. Concurrent run 409;
+        inactive transport 503; invalid filters/empty selection 422. 202 is admission
+        only; poll checks for results.
+      operationId: compute__start_calibration
+      requestBody:
+        content:
+          application/json:
+            schema:
+              anyOf:
+              - additionalProperties: true
+                type: object
+              - type: 'null'
+              properties:
+                scope:
+                  type: string
+                  enum:
+                  - configured
+                  - all
+                  default: configured
+                endpoint_ids:
+                  items:
+                    type: string
+                  type: array
+                  maxItems: 32
+                  minItems: 1
+                  uniqueItems: true
+                models:
+                  items:
+                    type: string
+                    maxLength: 256
+                    minLength: 1
+                  type: array
+                  maxItems: 256
+                  minItems: 1
+                  uniqueItems: true
+              additionalProperties: false
+              type: object
+              title: Body
+            example:
+              scope: configured
+        required: false
+      responses:
+        '202':
+          description: Calibration accepted; poll Location
+          content:
+            application/json:
+              schema:
+                properties:
+                  probe_version:
+                    type: string
+                  storage:
+                    type: string
+                  default_scope:
+                    type: string
+                    const: configured
+                  speech_models:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                        voice:
+                          type: string
+                          default: default
+                      type: object
+                      required:
+                      - name
+                      - voice
+                    type: array
+                  model_groups:
+                    properties:
+                      smart:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            ranking:
+                              type: number
+                              default: 0
+                          type: object
+                          required:
+                          - name
+                          - ranking
+                        type: array
+                      small:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            ranking:
+                              type: number
+                              default: 0
+                          type: object
+                          required:
+                          - name
+                          - ranking
+                        type: array
+                    type: object
+                    required:
+                    - smart
+                    - small
+                  endpoints:
+                    items:
+                      properties:
+                        id:
+                          type: string
+                        url:
+                          type: string
+                        key_configured:
+                          type: boolean
+                      type: object
+                      required:
+                      - id
+                      - url
+                      - key_configured
+                    type: array
+                  run:
+                    properties:
+                      id:
+                        type: string
+                      state:
+                        type: string
+                        enum:
+                        - running
+                        - completed
+                        - failed
+                        - cancelled
+                      phase:
+                        type: string
+                        enum:
+                        - discovery
+                        - features
+                        - speed
+                        - completed
+                        - failed
+                        - cancelled
+                      scope:
+                        type: string
+                        enum:
+                        - configured
+                        - all
+                      started_at:
+                        type: string
+                      finished_at:
+                        type:
+                        - string
+                        - 'null'
+                      total_models:
+                        type: integer
+                        minimum: 0.0
+                      features_completed:
+                        type: integer
+                        minimum: 0.0
+                      completed_models:
+                        type: integer
+                        minimum: 0.0
+                      current:
+                        properties:
+                          endpoint_id:
+                            type: string
+                          model:
+                            type: string
+                          step:
+                            type: string
+                        type:
+                        - object
+                        - 'null'
+                      error_code:
+                        type:
+                        - string
+                        - 'null'
+                      discovery:
+                        additionalProperties:
+                          properties:
+                            state:
+                              type: string
+                            model_count:
+                              type: integer
+                            error_code:
+                              type:
+                              - string
+                              - 'null'
+                          type: object
+                        type: object
+                    type:
+                    - object
+                    - 'null'
+                  results:
+                    additionalProperties:
+                      additionalProperties:
+                        properties:
+                          endpoint_id:
+                            type: string
+                          model:
+                            type: string
+                          requested_model:
+                            type: string
+                          groups:
+                            items:
+                              type: string
+                              enum:
+                              - smart
+                              - small
+                              - speech
+                            type: array
+                          task:
+                            type: string
+                            enum:
+                            - chat
+                            - speech
+                          voice:
+                            type: string
+                          speech:
+                            properties:
+                              voices:
+                                items:
+                                  type: string
+                                type: array
+                              formats:
+                                items:
+                                  type: string
+                                  const: wav
+                                type: array
+                              sample_rate:
+                                type: integer
+                                const: 24000
+                              channels:
+                                type: integer
+                                const: 1
+                              sample_width:
+                                type: integer
+                                const: 2
+                            type:
+                            - object
+                            - 'null'
+                          listed:
+                            type:
+                            - boolean
+                            - 'null'
+                          available:
+                            type:
+                            - boolean
+                            - 'null'
+                          state:
+                            type: string
+                            enum:
+                            - pending
+                            - running
+                            - unavailable
+                            - completed
+                            - failed
+                            - cancelled
+                          capabilities:
+                            properties:
+                              forms:
+                                type:
+                                - boolean
+                                - 'null'
+                              vision:
+                                type:
+                                - boolean
+                                - 'null'
+                              thinking:
+                                type:
+                                - boolean
+                                - 'null'
+                              speech:
+                                type:
+                                - boolean
+                                - 'null'
+                            type: object
+                            required:
+                            - forms
+                            - vision
+                            - thinking
+                          checks:
+                            properties:
+                              availability:
+                                properties:
+                                  state:
+                                    type: string
+                                    enum:
+                                    - pending
+                                    - running
+                                    - passed
+                                    - not_demonstrated
+                                    - rejected
+                                    - error
+                                    - skipped
+                                    - cancelled
+                                    - not_listed
+                                  passed:
+                                    type:
+                                    - boolean
+                                    - 'null'
+                                  error_code:
+                                    type:
+                                    - string
+                                    - 'null'
+                                  http_status:
+                                    type:
+                                    - integer
+                                    - 'null'
+                                  duration_seconds:
+                                    type:
+                                    - number
+                                    - 'null'
+                                    minimum: 0.0
+                                type: object
+                                required:
+                                - state
+                                - passed
+                                - error_code
+                                - http_status
+                                - duration_seconds
+                              forms:
+                                properties:
+                                  state:
+                                    type: string
+                                    enum:
+                                    - pending
+                                    - running
+                                    - passed
+                                    - not_demonstrated
+                                    - rejected
+                                    - error
+                                    - skipped
+                                    - cancelled
+                                    - not_listed
+                                  passed:
+                                    type:
+                                    - boolean
+                                    - 'null'
+                                  error_code:
+                                    type:
+                                    - string
+                                    - 'null'
+                                  http_status:
+                                    type:
+                                    - integer
+                                    - 'null'
+                                  duration_seconds:
+                                    type:
+                                    - number
+                                    - 'null'
+                                    minimum: 0.0
+                                type: object
+                                required:
+                                - state
+                                - passed
+                                - error_code
+                                - http_status
+                                - duration_seconds
+                              vision:
+                                properties:
+                                  state:
+                                    type: string
+                                    enum:
+                                    - pending
+                                    - running
+                                    - passed
+                                    - not_demonstrated
+                                    - rejected
+                                    - error
+                                    - skipped
+                                    - cancelled
+                                    - not_listed
+                                  passed:
+                                    type:
+                                    - boolean
+                                    - 'null'
+                                  error_code:
+                                    type:
+                                    - string
+                                    - 'null'
+                                  http_status:
+                                    type:
+                                    - integer
+                                    - 'null'
+                                  duration_seconds:
+                                    type:
+                                    - number
+                                    - 'null'
+                                    minimum: 0.0
+                                type: object
+                                required:
+                                - state
+                                - passed
+                                - error_code
+                                - http_status
+                                - duration_seconds
+                              thinking:
+                                properties:
+                                  state:
+                                    type: string
+                                    enum:
+                                    - pending
+                                    - running
+                                    - passed
+                                    - not_demonstrated
+                                    - rejected
+                                    - error
+                                    - skipped
+                                    - cancelled
+                                    - not_listed
+                                  passed:
+                                    type:
+                                    - boolean
+                                    - 'null'
+                                  error_code:
+                                    type:
+                                    - string
+                                    - 'null'
+                                  http_status:
+                                    type:
+                                    - integer
+                                    - 'null'
+                                  duration_seconds:
+                                    type:
+                                    - number
+                                    - 'null'
+                                    minimum: 0.0
+                                type: object
+                                required:
+                                - state
+                                - passed
+                                - error_code
+                                - http_status
+                                - duration_seconds
+                              speech:
+                                properties:
+                                  state:
+                                    type: string
+                                    enum:
+                                    - pending
+                                    - running
+                                    - passed
+                                    - not_demonstrated
+                                    - rejected
+                                    - error
+                                    - skipped
+                                    - cancelled
+                                    - not_listed
+                                  passed:
+                                    type:
+                                    - boolean
+                                    - 'null'
+                                  error_code:
+                                    type:
+                                    - string
+                                    - 'null'
+                                  http_status:
+                                    type:
+                                    - integer
+                                    - 'null'
+                                  duration_seconds:
+                                    type:
+                                    - number
+                                    - 'null'
+                                    minimum: 0.0
+                                type: object
+                                required:
+                                - state
+                                - passed
+                                - error_code
+                                - http_status
+                                - duration_seconds
+                              speed:
+                                properties:
+                                  state:
+                                    type: string
+                                    enum:
+                                    - pending
+                                    - running
+                                    - passed
+                                    - not_demonstrated
+                                    - rejected
+                                    - error
+                                    - skipped
+                                    - cancelled
+                                    - not_listed
+                                  passed:
+                                    type:
+                                    - boolean
+                                    - 'null'
+                                  error_code:
+                                    type:
+                                    - string
+                                    - 'null'
+                                  http_status:
+                                    type:
+                                    - integer
+                                    - 'null'
+                                  duration_seconds:
+                                    type:
+                                    - number
+                                    - 'null'
+                                    minimum: 0.0
+                                type: object
+                                required:
+                                - state
+                                - passed
+                                - error_code
+                                - http_status
+                                - duration_seconds
+                            type: object
+                            required:
+                            - availability
+                            - speed
+                          metrics:
+                            properties:
+                              ttft_seconds:
+                                type:
+                                - number
+                                - 'null'
+                                minimum: 0.0
+                              duration_seconds:
+                                type:
+                                - number
+                                - 'null'
+                                minimum: 0.0
+                              generation_seconds:
+                                type:
+                                - number
+                                - 'null'
+                                minimum: 0.0
+                              completion_tokens:
+                                type:
+                                - integer
+                                - 'null'
+                                minimum: 1.0
+                              reasoning_tokens:
+                                type:
+                                - integer
+                                - 'null'
+                                minimum: 0.0
+                              tokens_per_second:
+                                type:
+                                - number
+                                - 'null'
+                                minimum: 0.0
+                              generation_tokens_per_second:
+                                type:
+                                - number
+                                - 'null'
+                                minimum: 0.0
+                              first_token_kind:
+                                type: string
+                                enum:
+                                - content
+                                - reasoning
+                              token_count_source:
+                                type: string
+                                enum:
+                                - upstream_usage
+                                - unavailable
+                              timing_source:
+                                type: string
+                                enum:
+                                - client_monotonic_stream
+                                - client_monotonic_audio_stream
+                              ttfa_seconds:
+                                type:
+                                - number
+                                - 'null'
+                                minimum: 0.0
+                              audio_duration_seconds:
+                                type:
+                                - number
+                                - 'null'
+                                minimum: 0.0
+                              real_time_factor:
+                                type:
+                                - number
+                                - 'null'
+                                minimum: 0.0
+                              audio_bytes:
+                                type: integer
+                                minimum: 1.0
+                              sample_rate:
+                                type: integer
+                                const: 24000
+                              channels:
+                                type: integer
+                                const: 1
+                            type:
+                            - object
+                            - 'null'
+                          started_at:
+                            type:
+                            - string
+                            - 'null'
+                          finished_at:
+                            type:
+                            - string
+                            - 'null'
+                        type: object
+                        required:
+                        - endpoint_id
+                        - model
+                        - requested_model
+                        - task
+                        - groups
+                        - listed
+                        - available
+                        - state
+                        - capabilities
+                        - checks
+                        - metrics
+                        - started_at
+                        - finished_at
+                      type: object
+                    type: object
+                    description: Endpoint ID -> concrete model name -> latest probe
+                      record.
+                type: object
+                required:
+                - probe_version
+                - storage
+                - default_scope
+                - model_groups
+                - speech_models
+                - endpoints
+                - run
+                - results
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '409':
+          description: Conflict
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '503':
+          description: Service Unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+            Retry-After:
+              schema:
+                type: string
+                enum:
+                - '1'
+      parameters:
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+    delete:
+      summary: Cancel
+      description: Cancel and drain an active calibration, close its upstream response
+        and retain partial results marked cancelled. Idempotent when idle; GET/polling
+        remains available. Shutdown performs the same cleanup before closing the shared
+        chat client. This controls the local calibration only; it cannot attest remote
+        provider cancellation or billing.
+      operationId: compute__cancel_calibration
+      responses:
+        '200':
+          description: Process-local calibration snapshot
+          content:
+            application/json:
+              schema:
+                properties:
+                  probe_version:
+                    type: string
+                  storage:
+                    type: string
+                  default_scope:
+                    type: string
+                    const: configured
+                  speech_models:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                        voice:
+                          type: string
+                          default: default
+                      type: object
+                      required:
+                      - name
+                      - voice
+                    type: array
+                  model_groups:
+                    properties:
+                      smart:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            ranking:
+                              type: number
+                              default: 0
+                          type: object
+                          required:
+                          - name
+                          - ranking
+                        type: array
+                      small:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            ranking:
+                              type: number
+                              default: 0
+                          type: object
+                          required:
+                          - name
+                          - ranking
+                        type: array
+                    type: object
+                    required:
+                    - smart
+                    - small
+                  endpoints:
+                    items:
+                      properties:
+                        id:
+                          type: string
+                        url:
+                          type: string
+                        key_configured:
+                          type: boolean
+                      type: object
+                      required:
+                      - id
+                      - url
+                      - key_configured
+                    type: array
+                  run:
+                    properties:
+                      id:
+                        type: string
+                      state:
+                        type: string
+                        enum:
+                        - running
+                        - completed
+                        - failed
+                        - cancelled
+                      phase:
+                        type: string
+                        enum:
+                        - discovery
+                        - features
+                        - speed
+                        - completed
+                        - failed
+                        - cancelled
+                      scope:
+                        type: string
+                        enum:
+                        - configured
+                        - all
+                      started_at:
+                        type: string
+                      finished_at:
+                        type:
+                        - string
+                        - 'null'
+                      total_models:
+                        type: integer
+                        minimum: 0.0
+                      features_completed:
+                        type: integer
+                        minimum: 0.0
+                      completed_models:
+                        type: integer
+                        minimum: 0.0
+                      current:
+                        properties:
+                          endpoint_id:
+                            type: string
+                          model:
+                            type: string
+                          step:
+                            type: string
+                        type:
+                        - object
+                        - 'null'
+                      error_code:
+                        type:
+                        - string
+                        - 'null'
+                      discovery:
+                        additionalProperties:
+                          properties:
+                            state:
+                              type: string
+                            model_count:
+                              type: integer
+                            error_code:
+                              type:
+                              - string
+                              - 'null'
+                          type: object
+                        type: object
+                    type:
+                    - object
+                    - 'null'
+                  results:
+                    additionalProperties:
+                      additionalProperties:
+                        properties:
+                          endpoint_id:
+                            type: string
+                          model:
+                            type: string
+                          requested_model:
+                            type: string
+                          groups:
+                            items:
+                              type: string
+                              enum:
+                              - smart
+                              - small
+                              - speech
+                            type: array
+                          task:
+                            type: string
+                            enum:
+                            - chat
+                            - speech
+                          voice:
+                            type: string
+                          speech:
+                            properties:
+                              voices:
+                                items:
+                                  type: string
+                                type: array
+                              formats:
+                                items:
+                                  type: string
+                                  const: wav
+                                type: array
+                              sample_rate:
+                                type: integer
+                                const: 24000
+                              channels:
+                                type: integer
+                                const: 1
+                              sample_width:
+                                type: integer
+                                const: 2
+                            type:
+                            - object
+                            - 'null'
+                          listed:
+                            type:
+                            - boolean
+                            - 'null'
+                          available:
+                            type:
+                            - boolean
+                            - 'null'
+                          state:
+                            type: string
+                            enum:
+                            - pending
+                            - running
+                            - unavailable
+                            - completed
+                            - failed
+                            - cancelled
+                          capabilities:
+                            properties:
+                              forms:
+                                type:
+                                - boolean
+                                - 'null'
+                              vision:
+                                type:
+                                - boolean
+                                - 'null'
+                              thinking:
+                                type:
+                                - boolean
+                                - 'null'
+                              speech:
+                                type:
+                                - boolean
+                                - 'null'
+                            type: object
+                            required:
+                            - forms
+                            - vision
+                            - thinking
+                          checks:
+                            properties:
+                              availability:
+                                properties:
+                                  state:
+                                    type: string
+                                    enum:
+                                    - pending
+                                    - running
+                                    - passed
+                                    - not_demonstrated
+                                    - rejected
+                                    - error
+                                    - skipped
+                                    - cancelled
+                                    - not_listed
+                                  passed:
+                                    type:
+                                    - boolean
+                                    - 'null'
+                                  error_code:
+                                    type:
+                                    - string
+                                    - 'null'
+                                  http_status:
+                                    type:
+                                    - integer
+                                    - 'null'
+                                  duration_seconds:
+                                    type:
+                                    - number
+                                    - 'null'
+                                    minimum: 0.0
+                                type: object
+                                required:
+                                - state
+                                - passed
+                                - error_code
+                                - http_status
+                                - duration_seconds
+                              forms:
+                                properties:
+                                  state:
+                                    type: string
+                                    enum:
+                                    - pending
+                                    - running
+                                    - passed
+                                    - not_demonstrated
+                                    - rejected
+                                    - error
+                                    - skipped
+                                    - cancelled
+                                    - not_listed
+                                  passed:
+                                    type:
+                                    - boolean
+                                    - 'null'
+                                  error_code:
+                                    type:
+                                    - string
+                                    - 'null'
+                                  http_status:
+                                    type:
+                                    - integer
+                                    - 'null'
+                                  duration_seconds:
+                                    type:
+                                    - number
+                                    - 'null'
+                                    minimum: 0.0
+                                type: object
+                                required:
+                                - state
+                                - passed
+                                - error_code
+                                - http_status
+                                - duration_seconds
+                              vision:
+                                properties:
+                                  state:
+                                    type: string
+                                    enum:
+                                    - pending
+                                    - running
+                                    - passed
+                                    - not_demonstrated
+                                    - rejected
+                                    - error
+                                    - skipped
+                                    - cancelled
+                                    - not_listed
+                                  passed:
+                                    type:
+                                    - boolean
+                                    - 'null'
+                                  error_code:
+                                    type:
+                                    - string
+                                    - 'null'
+                                  http_status:
+                                    type:
+                                    - integer
+                                    - 'null'
+                                  duration_seconds:
+                                    type:
+                                    - number
+                                    - 'null'
+                                    minimum: 0.0
+                                type: object
+                                required:
+                                - state
+                                - passed
+                                - error_code
+                                - http_status
+                                - duration_seconds
+                              thinking:
+                                properties:
+                                  state:
+                                    type: string
+                                    enum:
+                                    - pending
+                                    - running
+                                    - passed
+                                    - not_demonstrated
+                                    - rejected
+                                    - error
+                                    - skipped
+                                    - cancelled
+                                    - not_listed
+                                  passed:
+                                    type:
+                                    - boolean
+                                    - 'null'
+                                  error_code:
+                                    type:
+                                    - string
+                                    - 'null'
+                                  http_status:
+                                    type:
+                                    - integer
+                                    - 'null'
+                                  duration_seconds:
+                                    type:
+                                    - number
+                                    - 'null'
+                                    minimum: 0.0
+                                type: object
+                                required:
+                                - state
+                                - passed
+                                - error_code
+                                - http_status
+                                - duration_seconds
+                              speech:
+                                properties:
+                                  state:
+                                    type: string
+                                    enum:
+                                    - pending
+                                    - running
+                                    - passed
+                                    - not_demonstrated
+                                    - rejected
+                                    - error
+                                    - skipped
+                                    - cancelled
+                                    - not_listed
+                                  passed:
+                                    type:
+                                    - boolean
+                                    - 'null'
+                                  error_code:
+                                    type:
+                                    - string
+                                    - 'null'
+                                  http_status:
+                                    type:
+                                    - integer
+                                    - 'null'
+                                  duration_seconds:
+                                    type:
+                                    - number
+                                    - 'null'
+                                    minimum: 0.0
+                                type: object
+                                required:
+                                - state
+                                - passed
+                                - error_code
+                                - http_status
+                                - duration_seconds
+                              speed:
+                                properties:
+                                  state:
+                                    type: string
+                                    enum:
+                                    - pending
+                                    - running
+                                    - passed
+                                    - not_demonstrated
+                                    - rejected
+                                    - error
+                                    - skipped
+                                    - cancelled
+                                    - not_listed
+                                  passed:
+                                    type:
+                                    - boolean
+                                    - 'null'
+                                  error_code:
+                                    type:
+                                    - string
+                                    - 'null'
+                                  http_status:
+                                    type:
+                                    - integer
+                                    - 'null'
+                                  duration_seconds:
+                                    type:
+                                    - number
+                                    - 'null'
+                                    minimum: 0.0
+                                type: object
+                                required:
+                                - state
+                                - passed
+                                - error_code
+                                - http_status
+                                - duration_seconds
+                            type: object
+                            required:
+                            - availability
+                            - speed
+                          metrics:
+                            properties:
+                              ttft_seconds:
+                                type:
+                                - number
+                                - 'null'
+                                minimum: 0.0
+                              duration_seconds:
+                                type:
+                                - number
+                                - 'null'
+                                minimum: 0.0
+                              generation_seconds:
+                                type:
+                                - number
+                                - 'null'
+                                minimum: 0.0
+                              completion_tokens:
+                                type:
+                                - integer
+                                - 'null'
+                                minimum: 1.0
+                              reasoning_tokens:
+                                type:
+                                - integer
+                                - 'null'
+                                minimum: 0.0
+                              tokens_per_second:
+                                type:
+                                - number
+                                - 'null'
+                                minimum: 0.0
+                              generation_tokens_per_second:
+                                type:
+                                - number
+                                - 'null'
+                                minimum: 0.0
+                              first_token_kind:
+                                type: string
+                                enum:
+                                - content
+                                - reasoning
+                              token_count_source:
+                                type: string
+                                enum:
+                                - upstream_usage
+                                - unavailable
+                              timing_source:
+                                type: string
+                                enum:
+                                - client_monotonic_stream
+                                - client_monotonic_audio_stream
+                              ttfa_seconds:
+                                type:
+                                - number
+                                - 'null'
+                                minimum: 0.0
+                              audio_duration_seconds:
+                                type:
+                                - number
+                                - 'null'
+                                minimum: 0.0
+                              real_time_factor:
+                                type:
+                                - number
+                                - 'null'
+                                minimum: 0.0
+                              audio_bytes:
+                                type: integer
+                                minimum: 1.0
+                              sample_rate:
+                                type: integer
+                                const: 24000
+                              channels:
+                                type: integer
+                                const: 1
+                            type:
+                            - object
+                            - 'null'
+                          started_at:
+                            type:
+                            - string
+                            - 'null'
+                          finished_at:
+                            type:
+                            - string
+                            - 'null'
+                        type: object
+                        required:
+                        - endpoint_id
+                        - model
+                        - requested_model
+                        - task
+                        - groups
+                        - listed
+                        - available
+                        - state
+                        - capabilities
+                        - checks
+                        - metrics
+                        - started_at
+                        - finished_at
+                      type: object
+                    type: object
+                    description: Endpoint ID -> concrete model name -> latest probe
+                      record.
+                type: object
+                required:
+                - probe_version
+                - storage
+                - default_scope
+                - model_groups
+                - speech_models
+                - endpoints
+                - run
+                - results
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      parameters:
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+  /api/v1/compute/ui:
+    get:
+      tags:
+      - Interface
+      summary: Interface
+      description: Local Amber WebTUI interface using version-pinned WebTUI 0.1.10
+        and IBM Plex Mono 2.5.0 served locally for single-prompt chat, speech to text,
+        text to speech, model measurements, live connections, request monitoring and
+        read-only configuration. Speech (#speech) accepts one dropped/chosen audio
+        file up to 25 MiB or a microphone recording up to 3 minutes. Files upload
+        immediately; microphone stop (also automatic at 3 minutes) submits the completed
+        recording to POST /v1/audio/transcriptions as multipart file with model=tiny.
+        Speech is transcribed in its original language; this is not live partial transcription.
+        Recording uses a supported browser MIME/container, requires HTTPS or localhost
+        and explicit microphone permission; page loading never requests access. Cancelling/navigation
+        discards captured audio and stops tracks, including late permission grants;
+        aborting an upload cannot stop already-running server inference. Audio/transcripts
+        have no browser persistence. Horizontal top navigation groups Monitoring (Requests,
+        Connections, Models), Services (Chat, Speech to text, Text to speech), Configuration
+        (Startup configuration), and Documentation (Swagger UI, OpenAPI specification),
+        without item numbers. Native disclosure menus support keyboard activation,
+        Escape, and outside-click dismissal. The left context column shows service
+        options, model/request filters or constraints; below 720px it becomes a collapsible
+        section above the workspace. Ctrl/Command+Enter submits the active form, including
+        from its sidebar options. Chat (#chat) has left-sidebar model smart/small
+        (default small) and Thinking off/on (default off) controls; each explicit
+        send streams POST /v1/chat/completions with only the current user message
+        and requests usage. Thinking forwards reasoning_effort medium/none, reasoning.enabled
+        and chat_template_kwargs.enable_thinking; actual support depends on the provider/model.
+        No conversation history or browser persistence. Completion always displays
+        expected selected-pair calibration and browser-measured throughput/TTFT; missing
+        measurements/usage remain unavailable. Browser throughput uses upstream completion_tokens
+        divided by request-to-stream-end elapsed time, including discovery/network
+        and reasoning tokens; aborted/failed/truncated streams do not publish a successful
+        rate. Navigating away stops the stream and discards the prompt/reply. Monitoring
+        shows active API requests, a searchable completion log and UTC minute/ten-minute/hour/day
+        histograms. Daily JSONL archives and reconstructed histograms survive restarts;
+        text, exact and UTC time filters cover disk and buffered rows, and flush health
+        is visible. Same-origin snapshots poll every five seconds while visible. Loading
+        never starts inference or calibration. Text to speech (#tts) offers configured
+        model/voice selectors in the left context column and a text box in the workspace,
+        explicitly calls the WAV speech proxy, then enables playback/download and
+        expected/browser first-audio/real-time-factor measurements after completion.
+        It buffers at most 32 MiB, normalizes completed WAV sizes in a temporary Blob,
+        and revokes the URL on navigation; no autoplay or persistent storage. Explicit
+        calibration controls default to configured smart/small/speech models. Swagger
+        is linked; all assets are local and root_path is honored.
+      operationId: compute__web_ui
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/html:
+              schema:
+                type: string
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      parameters:
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+  /api/v1/compute/ui.css:
+    get:
+      tags:
+      - Interface
+      summary: Style
+      description: Classless Amber WebTUI stylesheet with local @webtui/css 0.1.10
+        modules, IBM Plex Mono 2.5.0 fonts, semantic status colors, endpoint/model
+        panels, horizontal grouped disclosure navigation and a left context column
+        that collapses above the workspace below 720px. Styles and fonts load from
+        the allowlisted ui-assets route; all theme colors are centralized in amber.css.
+      operationId: compute__web_style
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/css:
+              schema:
+                type: string
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      parameters:
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+  /api/v1/compute/ui.js:
+    get:
+      tags:
+      - Interface
+      summary: Script
+      description: Packaged Compute interface script. Dynamic API values are rendered
+        as text, never executable HTML. Polling reads local monitoring/calibration
+        snapshots without contacting model servers; mutations are explicit and never
+        automatically retried.
+      operationId: compute__web_script
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/javascript:
+              schema:
+                type: string
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      parameters:
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+  /api/v1/compute/chat.js:
+    get:
+      tags:
+      - Interface
+      summary: Chat Script
+      description: Packaged ES module for stateless chat, UTF-8/SSE decoding and browser
+        timing. First/terminal modelname, compute_group, compute_hostname and request_bytes
+        fields identify the actual selected model/host/group and original request
+        size; older streams use X-Compute-Target/model fallback. Expected speed remains
+        in the header; actual speed uses upstream usage. Allows 8 MiB plus 8 KiB annotation/framing
+        overhead. Uses same-origin responses, renders text safely, requests usage
+        and keeps no persistent history. Missing token counts are never estimated
+        from chunks.
+      operationId: compute__web_chat_script
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/javascript:
+              schema:
+                type: string
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      parameters:
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+  /api/v1/compute/audio.js:
+    get:
+      tags:
+      - Interface
+      summary: Audio Script
+      description: Packaged ES module for the speech-to-text drop zone, file picker
+        and microphone recorder. Records with MediaRecorder, sends actual container
+        MIME/filename as multipart to the existing transcription API, handles HTTP
+        and legacy HTTP-200 errors, and releases microphone tracks on cancellation/navigation.
+        Browser-only limits are 25 MiB and 3 minutes; the transcription API's limits
+        are unchanged.
+      operationId: compute__web_audio_script
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/javascript:
+              schema:
+                type: string
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      parameters:
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+  /api/v1/compute/tts.js:
+    get:
+      tags:
+      - Interface
+      summary: Tts Script
+      description: 'Packaged text-to-speech ES module. #tts selects configured speech
+        model and default/calibrated voices in the left context column, explicitly
+        POSTs /v1/audio/speech, buffers at most 32 MiB WAV and exposes playback/download
+        after completion. Tracks browser first PCM/full-duration/real-time factor
+        against exact model/voice calibration. Normalizes unknown WAV sizes only in
+        the completed browser Blob for player compatibility. Abort/navigation/pagehide
+        stop fetch, pause audio and revoke the Blob URL; no persistence, autoplay
+        or generation on load. Input is limited to 4096 Unicode characters. Loading
+        the page only reads local snapshots.'
+      operationId: compute__web_tts_script
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/javascript:
+              schema:
+                type: string
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+      parameters:
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+  /api/v1/compute/monitoring/active:
+    get:
+      tags:
+      - Monitoring
+      summary: Active
+      description: Read ongoing server-side HTTP API requests, including waiting-for-headers
+        and full SSE/WAV/cleanup lifetimes. Covers /api and /v1 namespaces, unknown
+        API routes, documentation/assets, validation errors and CORS preflights; non-API
+        pages and pre-ASGI failures are excluded. Arrival id is scoped by each row's
+        instance_id; request_id is the possibly reused correlation header, nullable
+        for early CORS. Paths are redacted route templates. No body, query string,
+        credentials, client address or actual document path is stored. Chat and TTS
+        rows include selected group/model/endpoint ID; speech uses model_group speech.
+        Input text and generated audio are never stored. Active rows and totals reset
+        on restart; process_started_at identifies this process's beginning. The request
+        log and reconstructed histogram survive restarts with the same log directory.
+        log_status exposes unflushed rows, 60-second flush interval, last successful
+        nonempty flush, append_failed or null, and invalid archive rows skipped at
+        startup. totals includes all traffic even when rows are filtered. This GET
+        itself is active unless excluded. active_count may exceed limit; truncated
+        reports omissions. No inference or probes are triggered.
+      operationId: compute__active_requests
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          description: Maximum active rows, oldest started first.
+          default: 100
+          title: Limit
+        description: Maximum active rows, oldest started first.
+      - name: exclude_monitoring
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: Hide requests to these monitoring APIs from the rows and active_count.
+          default: false
+          title: Exclude Monitoring
+        description: Hide requests to these monitoring APIs from the rows and active_count.
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+      responses:
+        '200':
+          description: Request monitoring snapshot with durable daily-log metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - instance_id
+                - storage
+                - process_started_at
+                - cached_requests
+                - log_status
+                - observed_since
+                - generated_at
+                - log_capacity
+                - retained_requests
+                - evicted_requests
+                - exclude_monitoring
+                - totals
+                - active_count
+                - truncated
+                - requests
+                properties:
+                  instance_id:
+                    type: string
+                  storage:
+                    type: string
+                    enum:
+                    - daily-jsonl
+                    - process-local
+                  process_started_at:
+                    type: string
+                  cached_requests:
+                    type: integer
+                    minimum: 0
+                  log_status:
+                    type: object
+                    required:
+                    - buffered_entries
+                    - flush_interval_seconds
+                    - last_flush_at
+                    - error
+                    - ignored_lines
+                    properties:
+                      buffered_entries:
+                        type: integer
+                        minimum: 0
+                      flush_interval_seconds:
+                        type: number
+                        exclusiveMinimum: 0
+                      last_flush_at:
+                        type:
+                        - string
+                        - 'null'
+                      error:
+                        type:
+                        - string
+                        - 'null'
+                        enum:
+                        - append_failed
+                        - null
+                      ignored_lines:
+                        type: integer
+                        minimum: 0
+                  observed_since:
+                    type: string
+                  generated_at:
+                    type: string
+                  log_capacity:
+                    type: integer
+                    minimum: 0
+                  retained_requests:
+                    type: integer
+                    minimum: 0
+                  evicted_requests:
+                    type: integer
+                    minimum: 0
+                  exclude_monitoring:
+                    type: boolean
+                  active_count:
+                    type: integer
+                    minimum: 0
+                  truncated:
+                    type: boolean
+                  totals:
+                    type: object
+                    required:
+                    - received
+                    - finished
+                    - active
+                    - errors
+                    - cancelled
+                    properties:
+                      received:
+                        type: integer
+                        minimum: 0
+                      finished:
+                        type: integer
+                        minimum: 0
+                      active:
+                        type: integer
+                        minimum: 0
+                      errors:
+                        type: integer
+                        minimum: 0
+                      cancelled:
+                        type: integer
+                        minimum: 0
+                  requests:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                      - id
+                      - instance_id
+                      - completion_id
+                      - request_id
+                      - method
+                      - path
+                      - started_at
+                      - finished_at
+                      - duration_seconds
+                      - status_code
+                      - phase
+                      - state
+                      - traffic
+                      - request_bytes
+                      - response_bytes
+                      - model_group
+                      - model
+                      - endpoint_id
+                      properties:
+                        id:
+                          type: integer
+                          minimum: 1
+                        instance_id:
+                          type: string
+                        completion_id:
+                          type:
+                          - integer
+                          - 'null'
+                          minimum: 1
+                        request_id:
+                          type:
+                          - string
+                          - 'null'
+                        method:
+                          type: string
+                        path:
+                          type: string
+                        started_at:
+                          type: string
+                        finished_at:
+                          type:
+                          - string
+                          - 'null'
+                        duration_seconds:
+                          type: number
+                          minimum: 0
+                        status_code:
+                          type:
+                          - integer
+                          - 'null'
+                          minimum: 100
+                          maximum: 599
+                        phase:
+                          type: string
+                          enum:
+                          - processing
+                          - responding
+                          - streaming
+                          - finished
+                        state:
+                          type: string
+                          enum:
+                          - active
+                          - completed
+                          - failed
+                          - cancelled
+                          - disconnected
+                        traffic:
+                          type: string
+                          enum:
+                          - api
+                          - interface
+                          - monitoring
+                        request_bytes:
+                          type: integer
+                          minimum: 0
+                        response_bytes:
+                          type: integer
+                          minimum: 0
+                        model_group:
+                          type:
+                          - string
+                          - 'null'
+                          enum:
+                          - smart
+                          - small
+                          - speech
+                          - null
+                        model:
+                          type:
+                          - string
+                          - 'null'
+                        endpoint_id:
+                          type:
+                          - string
+                          - 'null'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+  /api/v1/compute/monitoring/requests:
+    get:
+      tags:
+      - Monitoring
+      summary: Requests
+      description: Search completed requests, newest completion_id first, across daily
+        JSONL files and not-yet-flushed RAM rows. Each call to the shared BufferedDailyLog.log
+        queues one row; its worker appends every 60 seconds using O_APPEND, without
+        rewriting existing content. Only requests-YYYY-MM-DD.jsonl for the UTC day
+        at flush time is appended; a batch crossing midnight belongs to the new day
+        while event timestamps remain unchanged. Default request_log_directory is
+        logs/compute, outside the public document directory. Shutdown drains the remainder;
+        a crash can lose unflushed RAM rows. There is no automatic archive deletion.
+        request_log_capacity (default 10000, 1..100000) bounds only the recent cache;
+        retained_requests includes disk and buffered records, cached_requests reports
+        the cache and evicted_requests is zero for durable storage. log_status reports
+        flush health. One writer may own each directory; another writer fails startup.
+        Completion IDs resume after the highest valid archived ID and remain stable
+        for pagination across restarts; arrival id is scoped by the row's original
+        instance_id. Search uses AND-combined exact filters, literal q and timezone-aware
+        since inclusive/until exclusive; an invalid time range returns 422. next_before=null
+        means no older matching rows. Disk searches run in a worker thread. Corrupt,
+        oversized or incompatible rows are skipped at startup/search. History contains
+        safe metadata only; no scopes, bodies, queries, credentials or raw exception
+        text. Failed/cancelled/disconnected outcomes remain distinct. This GET is
+        logged after its response completes; no provider calls or automatic generation
+        retries occur.
+      operationId: compute__request_log
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 500
+          minimum: 1
+          description: Maximum completed log rows.
+          default: 100
+          title: Limit
+        description: Maximum completed log rows.
+      - name: before
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+            minimum: 1
+          - type: 'null'
+          description: Exclusive completion_id cursor from next_before; persisted
+            IDs remain valid after restart in the same log directory.
+          title: Before
+        description: Exclusive completion_id cursor from next_before; persisted IDs
+          remain valid after restart in the same log directory.
+      - name: exclude_monitoring
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: Hide monitoring API requests; recording still includes them.
+          default: false
+          title: Exclude Monitoring
+        description: Hide monitoring API requests; recording still includes them.
+      - name: method
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 16
+            pattern: ^[A-Z]+$
+          - type: 'null'
+          description: Exact uppercase HTTP method filter.
+          title: Method
+        description: Exact uppercase HTTP method filter.
+      - name: status_code
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+            maximum: 599
+            minimum: 100
+          - type: 'null'
+          description: Exact HTTP status filter.
+          title: Status Code
+        description: Exact HTTP status filter.
+      - name: path
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 512
+          - type: 'null'
+          description: Exact API route template filter, not a concrete document path.
+          title: Path
+        description: Exact API route template filter, not a concrete document path.
+      - name: q
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 256
+          - type: 'null'
+          description: Case-insensitive literal substring of JSON request metadata;
+            no regex or shell.
+          title: Q
+        description: Case-insensitive literal substring of JSON request metadata;
+          no regex or shell.
+      - name: since
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          description: Inclusive log timestamp, ISO 8601 with timezone, for example
+            2026-10-25T00:00:00Z.
+          title: Since
+        description: Inclusive log timestamp, ISO 8601 with timezone, for example
+          2026-10-25T00:00:00Z.
+      - name: until
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          description: Exclusive log timestamp, ISO 8601 with timezone; must not precede
+            since.
+          title: Until
+        description: Exclusive log timestamp, ISO 8601 with timezone; must not precede
+          since.
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+      responses:
+        '200':
+          description: Request monitoring snapshot with durable daily-log metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - instance_id
+                - storage
+                - process_started_at
+                - cached_requests
+                - log_status
+                - observed_since
+                - generated_at
+                - log_capacity
+                - retained_requests
+                - evicted_requests
+                - exclude_monitoring
+                - requests
+                - next_before
+                properties:
+                  instance_id:
+                    type: string
+                  storage:
+                    type: string
+                    enum:
+                    - daily-jsonl
+                    - process-local
+                  process_started_at:
+                    type: string
+                  cached_requests:
+                    type: integer
+                    minimum: 0
+                  log_status:
+                    type: object
+                    required:
+                    - buffered_entries
+                    - flush_interval_seconds
+                    - last_flush_at
+                    - error
+                    - ignored_lines
+                    properties:
+                      buffered_entries:
+                        type: integer
+                        minimum: 0
+                      flush_interval_seconds:
+                        type: number
+                        exclusiveMinimum: 0
+                      last_flush_at:
+                        type:
+                        - string
+                        - 'null'
+                      error:
+                        type:
+                        - string
+                        - 'null'
+                        enum:
+                        - append_failed
+                        - null
+                      ignored_lines:
+                        type: integer
+                        minimum: 0
+                  observed_since:
+                    type: string
+                  generated_at:
+                    type: string
+                  log_capacity:
+                    type: integer
+                    minimum: 0
+                  retained_requests:
+                    type: integer
+                    minimum: 0
+                  evicted_requests:
+                    type: integer
+                    minimum: 0
+                  exclude_monitoring:
+                    type: boolean
+                  requests:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                      - id
+                      - instance_id
+                      - completion_id
+                      - request_id
+                      - method
+                      - path
+                      - started_at
+                      - finished_at
+                      - duration_seconds
+                      - status_code
+                      - phase
+                      - state
+                      - traffic
+                      - request_bytes
+                      - response_bytes
+                      - model_group
+                      - model
+                      - endpoint_id
+                      properties:
+                        id:
+                          type: integer
+                          minimum: 1
+                        instance_id:
+                          type: string
+                        completion_id:
+                          type:
+                          - integer
+                          - 'null'
+                          minimum: 1
+                        request_id:
+                          type:
+                          - string
+                          - 'null'
+                        method:
+                          type: string
+                        path:
+                          type: string
+                        started_at:
+                          type: string
+                        finished_at:
+                          type:
+                          - string
+                          - 'null'
+                        duration_seconds:
+                          type: number
+                          minimum: 0
+                        status_code:
+                          type:
+                          - integer
+                          - 'null'
+                          minimum: 100
+                          maximum: 599
+                        phase:
+                          type: string
+                          enum:
+                          - processing
+                          - responding
+                          - streaming
+                          - finished
+                        state:
+                          type: string
+                          enum:
+                          - active
+                          - completed
+                          - failed
+                          - cancelled
+                          - disconnected
+                        traffic:
+                          type: string
+                          enum:
+                          - api
+                          - interface
+                          - monitoring
+                        request_bytes:
+                          type: integer
+                          minimum: 0
+                        response_bytes:
+                          type: integer
+                          minimum: 0
+                        model_group:
+                          type:
+                          - string
+                          - 'null'
+                          enum:
+                          - smart
+                          - small
+                          - speech
+                          - null
+                        model:
+                          type:
+                          - string
+                          - 'null'
+                        endpoint_id:
+                          type:
+                          - string
+                          - 'null'
+                  next_before:
+                    type:
+                    - integer
+                    - 'null'
+                    minimum: 1
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+  /api/v1/compute/monitoring/histogram:
+    get:
+      tags:
+      - Monitoring
+      summary: Histogram
+      description: 'Read zero-filled UTC completion buckets, oldest first, including
+        the current partial bucket. requests counts all finished outcomes; errors
+        counts failed HTTP/application/transport requests; cancelled counts cancellation/disconnection.
+        Errors and cancelled are disjoint subsets. Startup reconstructs aggregates
+        from valid daily-log records before serving requests, including older entries
+        outside the RAM cache. Each resolution keeps at most 1440 buckets: one day
+        of minutes, ten days of ten-minute buckets, sixty days of hours and 1440 days
+        of days. Rebuilding streams archive files without retaining their entire contents.
+        observed_since is the earliest restored request start, or this process''s
+        start without history; observed=false and partial=true identify time before
+        this boundary/current bucket, not continuous server uptime. Active counters
+        reset on restart; historical aggregates persist through the shared archive
+        and no workers share active state. Requests still active enter a histogram
+        only on completion. This GET is counted after returning; exclude_monitoring
+        filters the view without disabling recording.'
+      operationId: compute__request_histogram
+      parameters:
+      - name: interval
+        in: query
+        required: false
+        schema:
+          enum:
+          - minute
+          - ten_minutes
+          - hour
+          - day
+          type: string
+          description: UTC-aligned buckets of 60, 600, 3600 or 86400 seconds.
+          default: minute
+          title: Interval
+        description: UTC-aligned buckets of 60, 600, 3600 or 86400 seconds.
+      - name: buckets
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+            maximum: 1440
+            minimum: 1
+          - type: 'null'
+          description: Bucket count; omitted defaults to 60 minutes, 144 ten-minute
+            buckets, 168 hours or 30 days.
+          title: Buckets
+        description: Bucket count; omitted defaults to 60 minutes, 144 ten-minute
+          buckets, 168 hours or 30 days.
+      - name: exclude_monitoring
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: Subtract monitoring API traffic from each bucket and totals.
+          default: false
+          title: Exclude Monitoring
+        description: Subtract monitoring API traffic from each bucket and totals.
+      - name: X-Request-ID
+        in: header
+        required: false
+        description: Safe ASCII correlation ID; missing or invalid values are replaced
+          by a UUID. This is not an inference or idempotency ID.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+      responses:
+        '200':
+          description: Request monitoring snapshot with durable daily-log metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - instance_id
+                - storage
+                - process_started_at
+                - cached_requests
+                - log_status
+                - observed_since
+                - generated_at
+                - log_capacity
+                - retained_requests
+                - evicted_requests
+                - exclude_monitoring
+                - interval
+                - bucket_seconds
+                - retention_buckets
+                - totals
+                - buckets
+                properties:
+                  instance_id:
+                    type: string
+                  storage:
+                    type: string
+                    enum:
+                    - daily-jsonl
+                    - process-local
+                  process_started_at:
+                    type: string
+                  cached_requests:
+                    type: integer
+                    minimum: 0
+                  log_status:
+                    type: object
+                    required:
+                    - buffered_entries
+                    - flush_interval_seconds
+                    - last_flush_at
+                    - error
+                    - ignored_lines
+                    properties:
+                      buffered_entries:
+                        type: integer
+                        minimum: 0
+                      flush_interval_seconds:
+                        type: number
+                        exclusiveMinimum: 0
+                      last_flush_at:
+                        type:
+                        - string
+                        - 'null'
+                      error:
+                        type:
+                        - string
+                        - 'null'
+                        enum:
+                        - append_failed
+                        - null
+                      ignored_lines:
+                        type: integer
+                        minimum: 0
+                  observed_since:
+                    type: string
+                  generated_at:
+                    type: string
+                  log_capacity:
+                    type: integer
+                    minimum: 0
+                  retained_requests:
+                    type: integer
+                    minimum: 0
+                  evicted_requests:
+                    type: integer
+                    minimum: 0
+                  exclude_monitoring:
+                    type: boolean
+                  interval:
+                    type: string
+                    enum:
+                    - minute
+                    - ten_minutes
+                    - hour
+                    - day
+                  bucket_seconds:
+                    type: integer
+                    enum:
+                    - 60
+                    - 600
+                    - 3600
+                    - 86400
+                  retention_buckets:
+                    type: integer
+                    const: 1440
+                  totals:
+                    type: object
+                    properties:
+                      requests:
+                        type: integer
+                        minimum: 0
+                      errors:
+                        type: integer
+                        minimum: 0
+                      cancelled:
+                        type: integer
+                        minimum: 0
+                    required:
+                    - requests
+                    - errors
+                    - cancelled
+                  buckets:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                      - start
+                      - end
+                      - requests
+                      - errors
+                      - cancelled
+                      - observed
+                      - partial
+                      properties:
+                        start:
+                          type: string
+                        end:
+                          type: string
+                        requests:
+                          type: integer
+                          minimum: 0
+                        errors:
+                          type: integer
+                          minimum: 0
+                        cancelled:
+                          type: integer
+                          minimum: 0
+                        observed:
+                          type: boolean
+                        partial:
+                          type: boolean
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '404':
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          headers:
+            X-Request-ID:
+              description: The accepted or generated request correlation ID.
+              schema:
+                type: string
   /api/v1/compute/capabilities:
     get:
       summary: Capabilities
@@ -1241,6 +5565,7 @@ paths:
                 tasks:
                 - chat
                 - transcription
+                - speech
           headers:
             X-Request-ID:
               description: The accepted or generated request correlation ID.

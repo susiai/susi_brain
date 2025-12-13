@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en" data-webtui-theme="amber">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>SUSI __SERVICE__</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="__PREFIX__/ui.css">
+  <script src="__PREFIX__/ui.js" type="module"></script>
+</head>
+<body data-owner="__OWNER__" data-prefix="__PREFIX__">
+  <a href="#panel" id="skip-navigation">Skip to workspace</a>
+  <header>
+    <h1><span aria-hidden="true">&gt;</span> SUSI __SERVICE__<span aria-hidden="true">_</span></h1>
+    <p>Service terminal</p>
+    <button id="refresh" type="button" aria-label="Refresh snapshots">Refresh ↻</button>
+  </header>
+  <nav id="application-navigation" aria-label="Application sections">
+    <details data-navigation-group="monitoring">
+      <summary>Monitoring</summary>
+      <ul>
+        <li><a href="#monitoring" data-view="monitoring">Requests</a></li>
+        <li><a href="#connections" data-view="connections">Connections</a></li>
+        <li><a href="#models" data-view="models">Models</a></li>
+      </ul>
+    </details>
+    <details data-navigation-group="services">
+      <summary>Services</summary>
+      <ul>
+        <li><a href="#chat" data-view="chat">Chat</a></li>
+        <li><a href="#speech" data-view="speech">Speech to text</a></li>
+        <li><a href="#tts" data-view="tts">Text to speech</a></li>
+      </ul>
+    </details>
+    <details data-navigation-group="configuration">
+      <summary>Configuration</summary>
+      <ul><li><a href="#configuration" data-view="configuration">Startup configuration</a></li></ul>
+    </details>
+    <details data-navigation-group="documentation">
+      <summary>Documentation</summary>
+      <ul>
+        <li><a id="api-docs" href="__PREFIX__/docs">Swagger UI ↗</a></li>
+        <li><a href="__PREFIX__/openapi.json">OpenAPI specification ↗</a></li>
+      </ul>
+    </details>
+  </nav>
+  <main>
+    <aside id="context-sidebar" aria-label="View options">
+      <details id="context-details" open>
+        <summary id="context-summary">View options</summary>
+        <header><h2 id="context-title">Context</h2></header>
+        <div id="context-panel"></div>
+      </details>
+      <section id="service-summary" aria-label="Service status">
+        <p id="service-state" data-state="neutral">Service status unknown</p>
+        <p id="endpoint-count">Waiting for snapshots</p>
+      </section>
+    </aside>
+    <article aria-label="Operations view">
+      <header>
+        <div><p id="view-path">compute / models</p><h2 id="view-title">Models</h2></div>
+        <div id="view-actions"></div>
+      </header>
+      <div id="panel" tabindex="-1"></div>
+    </article>
+  </main>
+  <footer>
+    <output id="status" role="status" aria-live="polite" data-state="busy">Loading local snapshots…</output>
+    <small id="footer-hint">Snapshots / 5s</small>
+  </footer>
+  <noscript>This interface requires JavaScript. The API remains available at <a href="__PREFIX__/docs">Swagger</a>.</noscript>
+</body>
+</html>

@@ -1,0 +1,32 @@
+{
+  "packages": [
+    {
+      "name": "@webtui/css",
+      "version": "0.1.10",
+      "license": "MIT",
+      "integrity": "sha512-iovJnGDbhi0vaaOjpG+i56HGKx5hHls8JhhQxwPTl5b5ddce7PO+r7F+S4EObYjQlaa1RfClahkmpiNF+R8y8w==",
+      "modules": [
+        "base.css",
+        "utils/box.css",
+        "components/button.css",
+        "components/typography.css",
+        "components/input.css",
+        "components/textarea.css",
+        "components/checkbox.css",
+        "components/table.css",
+        "components/pre.css",
+        "components/progress.css"
+      ]
+    },
+    {
+      "name": "@ibm/plex-mono",
+      "version": "2.5.0",
+      "license": "OFL-1.1",
+      "integrity": "sha512-STBJIPxPomOYPmBMO7z5TKPJUotAF9u3gAUumTqVgwgrAO+K4FRNh0MlhsoJjKhJKsMbBJR10/bk4inkj/wc1w==",
+      "weights": [
+        400,
+        500
+      ]
+    }
+  ]
+}

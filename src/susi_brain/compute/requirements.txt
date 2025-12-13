@@ -1,6 +1,11 @@
 # Runtime dependencies shared by local installs, packaging, and Docker.
-# Pydantic validates configuration; HTTP responses use regular dictionaries.
+# Pydantic validates configuration, including finite model rankings; HTTP responses use regular dictionaries.
+# Connection accounting and measured routing reuse the standard library.
 # Swagger UI 5.33.1 assets are bundled in shared/web/static/vendor/swagger-ui; no extra Python dependency.
+# The classless Amber interface vendors @webtui/css 0.1.10 and IBM Plex Mono 2.5.0
+# with licenses; these browser assets require no Python package or frontend runtime.
+# Request monitoring uses stdlib locks, bounded deques and UTC/monotonic clocks;
+# its histogram uses browser-native SVG without charting dependencies.
 fastapi>=0.115,<1
 pydantic>=2.12,<3
 uvicorn>=0.30,<1
@@ -8,6 +13,14 @@ python-multipart>=0.0.20,<1
 werkzeug>=3.1,<4
 requests>=2.32,<3
 requests-toolbelt>=1,<2
+# Chat/TTS discovery and JSON/SSE/WAV proxying, including HTTPS/Bearer endpoints,
+# use a lifespan-owned asynchronous HTTPX client with TLS verification.
+# Chat annotates first/terminal SSE objects with routing metadata, using stdlib
+# byte framing/regex/JSON; middle lines and upstream usage stay unmodified.
+# Calibration reuses HTTPX plus stdlib timing/JSON/base64 and packaged fixtures;
+# it needs no resident model, image-processing or benchmark-specific library.
+# Ollama TTS reuses HTTPX; PCM WAV validation/timing use stdlib struct and clocks.
+httpx>=0.27,<1
 psutil>=5.9,<8
 openai-whisper==20250625
 vosk>=0.3.44,<1

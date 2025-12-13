@@ -20,22 +20,21 @@ def check(client, kind, args):
         response = client.get(prefix + "/openapi.json")
         response.raise_for_status()
         assert response.json()["openapi"].startswith("3.")
-        assert prefix + "/chat/completions" in response.json()["paths"]
+        assert "/v1/chat/completions" in response.json()["paths"]
+        assert "/v1/audio/transcriptions" in response.json()["paths"]
     elif kind == "metrics":
         response = client.get(prefix + "/system/status.json")
         response.raise_for_status()
         assert response.json()["cpu_count"] > 0
     elif kind == "chat":
-        payload = {"messages": [{"role": "user", "content": "Hello!"}]}
-        if args.chat_model:
-            payload["model"] = args.chat_model
-        response = client.post(prefix + "/chat/completions", json=payload)
+        payload = {"model": args.chat_model, "messages": [{"role": "user", "content": "Hello!"}]}
+        response = client.post("/v1/chat/completions", json=payload)
         response.raise_for_status()
         assert response.json()["choices"]
         print(json.dumps(response.json(), ensure_ascii=False))
     elif kind == "audio":
         with args.file.open("rb") as audio:
-            response = client.post(prefix + "/audio/transcriptions", files={"file": (args.file.name, audio, "audio/wav")}, data={"model": args.model})
+            response = client.post("/v1/audio/transcriptions", files={"file": (args.file.name, audio, "audio/wav")}, data={"model": args.model})
         response.raise_for_status()
         assert isinstance(response.json()["text"], str) and response.json()["text"].strip()
         print(json.dumps(response.json(), ensure_ascii=False))
@@ -68,7 +67,7 @@ def main():
     parser.add_argument("--base-url", default="http://127.0.0.1:8042")
     parser.add_argument("--file", type=Path, default=Path(__file__).resolve().parents[1] / "wav/test_english_alex_how.wav")
     parser.add_argument("--model", default="tiny")
-    parser.add_argument("--chat-model")
+    parser.add_argument("--chat-model", choices=["smart", "small"], default="small")
     parser.add_argument("--token", default=os.environ.get("SUSI_API_KEY", ""))
     args = parser.parse_args()
     try:

@@ -13,6 +13,10 @@ def main(argv=None):
     compute.add_argument("--openai_api_key", "--openai-api-key", help="OpenAI API key; defaults to OPENAI_API_KEY.")
     compute.add_argument("--susi_api_key", "--susi-api-key", help="Bearer token required for file mutations; defaults to SUSI_API_KEY.")
     compute.add_argument("--data-path", help="File storage directory; source checkouts default to the project's data/.")
+    compute.add_argument("--endpoints", nargs="+", help="Chat/TTS targets as host:port values; use --config for URL/key objects.")
+    compute.add_argument("--smart", nargs="+", help="Concrete smart model names with ranking 0; use --config for rankings.")
+    compute.add_argument("--small", nargs="+", help="Concrete small model names; measured speed determines priority.")
+    compute.add_argument("--speech", nargs="+", help="Allowed Ollama speech model names; use --config for default voices.")
     args = parser.parse_args(argv)
 
     from pydantic import ValidationError
@@ -29,6 +33,7 @@ def main(argv=None):
         settings = ComputeSettings.from_env(
             base=data.get("compute"), openai_api_key=args.openai_api_key,
             susi_api_key=args.susi_api_key, data_path=args.data_path,
+            endpoints=args.endpoints, smart=args.smart, small=args.small, speech=args.speech,
         )
     except (ValidationError, ValueError, OSError):
         parser.error("invalid configuration; check JSON fields, CLI options and SUSI_* variables")

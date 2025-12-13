@@ -5,6 +5,17 @@
   },
   "compute": {
     "readiness_timeout_seconds": 2,
-    "data_path": "data"
+    "data_path": "data",
+    "endpoints": ["127.0.0.1:11434", "127.0.0.1:8080"],
+    "smart": [{"name": "your-smart-model", "ranking": 90}, {"name": "your-smart-fallback-model", "ranking": 70}],
+    "small": [{"name": "your-small-model", "ranking": 30}],
+    "speech": [{"name": "phonon", "voice": "default"}],
+    "model_probe_timeout_seconds": 3,
+    "chat_timeout_seconds": 120,
+    "speech_timeout_seconds": 120,
+    "calibration_timeout_seconds": 60,
+    "calibration_max_pairs": 1024,
+    "request_log_capacity": 10000,
+    "request_log_directory": "logs/compute"
   }
 }

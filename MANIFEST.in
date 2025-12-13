@@ -1,9 +1,12 @@
 include requirements*.txt
+include conftest.py
 include src/susi_brain/compute/requirements.txt
 recursive-include config *.json
 recursive-include docker *.Dockerfile
 recursive-include scripts *.py
 recursive-include src *.md *.yaml
 recursive-include src/susi_brain/shared/web/static *
-recursive-include test *.py *.sh *.html *.wav
+recursive-include src/susi_brain/compute/fixtures *.png
+recursive-include src/susi_brain/shared/licenses *.txt
+recursive-include test *.py *.sh *.html *.wav *.mjs
 prune tests

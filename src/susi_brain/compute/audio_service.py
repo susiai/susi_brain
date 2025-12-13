@@ -7,7 +7,7 @@ from requests_toolbelt.multipart.encoder import MultipartEncoder
 class VoiceTranscription:
 
     # call i.e.:
-    # curl -X POST http://localhost:8042/api/v1/compute/audio/transcriptions -H "Content-Type: multipart/form-data" -F file="@test.wav" -F model="whisper-1"
+    # curl -X POST http://localhost:8042/v1/audio/transcriptions -H "Content-Type: multipart/form-data" -F file="@test.wav" -F model="whisper-1"
     def post(self, request: Request, file: UploadFile | None = File(default=None),
              model: str = Form(default="tiny"),
              authorization: str | None = Depends(APIKeyHeader(name="Authorization", scheme_name="BearerToken",

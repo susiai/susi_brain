@@ -32,6 +32,8 @@ def install_startup_hints(app, owner, server, *, examples):
         async with lifespan(app) as state:
             logger = logging.getLogger("uvicorn.error")
             logger.info("Open %s/docs for Swagger UI.", base)
+            if any(getattr(route, 'path', '') == f'/api/v1/{owner}/ui' for route in app.routes):
+                logger.info("Open %s/ui for the application interface.", base)
             for path in examples:
                 logger.info("curl '%s/%s'", base, path)
             yield state
@@ -129,7 +131,7 @@ def install_operational_routes(app, owner, status_provider, status_example):
 
 def create_scaffold_app(
     owner, settings, runtime, *, pending=(), stage="scaffold",
-    implemented=("health", "status", "offline-docs"), description=None,
+    implemented=("health", "status", "offline-docs"), description=None, expose_headers=(),
 ):
     """Compose common HTTP behavior; application-specific routes stay with their owner."""
     prefix = f"/api/v1/{owner}"
@@ -144,7 +146,7 @@ def create_scaffold_app(
     app.state.runtime = runtime
     install_native_errors(app)
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET", "POST", "DELETE"],
-                       allow_headers=["*"], expose_headers=["X-Request-ID"])
+                       allow_headers=["*"], expose_headers=["X-Request-ID", *expose_headers])
 
     @app.get(prefix + "/health/live", operation_id=owner + "__health_live", responses=HEALTH_RESPONSE)
     def live() -> dict:
@@ -194,7 +196,7 @@ def create_scaffold_app(
                         "schema": {"type": "string"},
                     }
                     if status in {"429", "503"}:
-                        headers["Retry-After"] = {"schema": {"type": "string", "enum": ["1"]}}
+                        headers.setdefault("Retry-After", {"schema": {"type": "string", "enum": ["1"]}})
         return schema
 
     app.openapi = openapi
